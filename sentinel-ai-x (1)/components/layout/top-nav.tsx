@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NOTIFICATIONS } from '@/lib/data'
+import { fetchNotifications } from '@/lib/api'
 
 const BREADCRUMB_MAP: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -45,9 +46,14 @@ export function TopNav({ onMenuClick, onCommandOpen, onActivityOpen, onShortcuts
   const pathname = usePathname()
   const [notifOpen, setNotifOpen] = useState(false)
   const [searchFocus, setSearchFocus] = useState(false)
+  const [notifications, setNotifications] = useState(NOTIFICATIONS)
+
+  useEffect(() => {
+    fetchNotifications().then(res => setNotifications(res.notifications || res)).catch(() => {})
+  }, [])
 
   const segments = pathname.split('/').filter(Boolean)
-  const unreadCount = NOTIFICATIONS.filter((n) => !n.read).length
+  const unreadCount = notifications.filter((n: any) => !n.read).length
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -139,7 +145,7 @@ export function TopNav({ onMenuClick, onCommandOpen, onActivityOpen, onShortcuts
                   <button className="text-xs text-primary hover:underline">Mark all read</button>
                 </div>
                 <div className="max-h-[380px] overflow-y-auto">
-                  {NOTIFICATIONS.map((n) => {
+                  {notifications.map((n: any) => {
                     const Icon =
                       n.type === 'critical' ? AlertTriangle :
                       n.type === 'success' ? CheckCircle :

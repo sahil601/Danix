@@ -60,7 +60,7 @@ export function AIExecutiveSummary() {
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground">AI Executive Summary</h3>
-            <p className="text-[10px] text-muted-foreground">Generated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+            <p className="text-[10px] text-muted-foreground" suppressHydrationWarning>Generated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search,
@@ -26,27 +26,38 @@ import {
 } from 'lucide-react'
 import { motion as m2 } from 'framer-motion'
 import { DEMO_FINDINGS } from '@/lib/data'
+import { fetchFindings } from '@/lib/api'
 import { SeverityBadge, StatusBadge } from '@/components/ui/severity-badge'
 import { cn } from '@/lib/utils'
 
 export default function FindingsPage() {
+  const [findings, setFindings] = useState(DEMO_FINDINGS)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchFindings().then(res => {
+      setFindings(res.findings || res)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [severityFilter, setSeverityFilter] = useState('all')
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
-  const filtered = DEMO_FINDINGS.filter((f) => {
+  const filtered = findings.filter((f) => {
     const matchSearch = !search || f.title.toLowerCase().includes(search.toLowerCase()) || f.asset.includes(search)
     const matchSeverity = severityFilter === 'all' || f.severity === severityFilter
     return matchSearch && matchSeverity
   })
 
   const counts = {
-    all: DEMO_FINDINGS.length,
-    critical: DEMO_FINDINGS.filter((f) => f.severity === 'critical').length,
-    high: DEMO_FINDINGS.filter((f) => f.severity === 'high').length,
-    medium: DEMO_FINDINGS.filter((f) => f.severity === 'medium').length,
-    low: DEMO_FINDINGS.filter((f) => f.severity === 'low').length,
+    all: findings.length,
+    critical: findings.filter((f) => f.severity === 'critical').length,
+    high: findings.filter((f) => f.severity === 'high').length,
+    medium: findings.filter((f) => f.severity === 'medium').length,
+    low: findings.filter((f) => f.severity === 'low').length,
   }
 
   const copy = (text: string, id: string) => {
@@ -67,7 +78,7 @@ export default function FindingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Findings</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {DEMO_FINDINGS.length} findings · {counts.critical} critical
+            {findings.length} findings · {counts.critical} critical
           </p>
         </div>
         <button className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-zinc-600 transition-colors self-start sm:self-auto">

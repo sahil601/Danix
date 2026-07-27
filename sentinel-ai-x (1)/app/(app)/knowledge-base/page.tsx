@@ -147,12 +147,20 @@ const SEVERITY_COLORS: Record<string, string> = {
 const AI_SUMMARY = `Based on your active projects and recent findings, the most relevant knowledge areas are:
 **Injection vulnerabilities** (A03:2021) affecting 4 of your assets, **broken access control** patterns in the FinTrust assessment, and **TLS configuration** issues on legacy systems. I recommend reviewing the Log4Shell advisory as it directly maps to your CVE-2021-44228 finding.`
 
+import { fetchKBCategories } from '@/lib/api'
+import { useEffect } from 'react'
+
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function KnowledgeBasePage() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
   const [bookmarkedOnly, setBookmarkedOnly] = useState(false)
   const [activeArticle, setActiveArticle] = useState<typeof KB_ARTICLES[0] | null>(null)
+  const [categories, setCategories] = useState(KB_CATEGORIES)
+
+  useEffect(() => {
+    fetchKBCategories().then(res => setCategories(res.categories || res)).catch(() => {})
+  }, [])
 
   const filtered = KB_ARTICLES.filter((a) => {
     const matchSearch = !search ||
@@ -180,7 +188,7 @@ export default function KnowledgeBasePage() {
             <span>All Articles</span>
             <span className="text-[10px] rounded bg-zinc-700/60 px-1.5 py-0.5">{KB_ARTICLES.length}</span>
           </button>
-          {KB_CATEGORIES.map((cat) => {
+          {categories.map((cat: any) => {
             const Icon = CATEGORY_ICONS[cat.id] ?? BookOpen
             return (
               <button

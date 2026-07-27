@@ -1,8 +1,10 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Bot, Clock, TrendingDown, Zap, ChevronRight, AlertTriangle, AlertCircle } from 'lucide-react'
 import { AI_RECOMMENDATIONS } from '@/lib/data'
+import { fetchRecommendations } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const ENHANCED_RECS = [
@@ -55,6 +57,12 @@ const PRIORITY_CONFIG: Record<string, { icon: typeof AlertTriangle; iconColor: s
 }
 
 export function AIRecommendationCard() {
+  const [recommendations, setRecommendations] = useState(ENHANCED_RECS)
+
+  useEffect(() => {
+    fetchRecommendations().then(res => setRecommendations(res.recommendations || res)).catch(() => {})
+  }, [])
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -70,12 +78,12 @@ export function AIRecommendationCard() {
             <p className="text-xs text-muted-foreground mt-0.5">Prioritized by impact &amp; exploitability</p>
           </div>
         </div>
-        <span className="text-[10px] text-muted-foreground">{ENHANCED_RECS.length} actions</span>
+        <span className="text-[10px] text-muted-foreground">{recommendations.length} actions</span>
       </div>
 
       <div className="space-y-3">
-        {ENHANCED_RECS.map((rec, i) => {
-          const cfg = PRIORITY_CONFIG[rec.priority]
+        {recommendations.map((rec: any, i: number) => {
+          const cfg = PRIORITY_CONFIG[rec.priority?.toLowerCase()] || PRIORITY_CONFIG['medium']
           const PriorityIcon = cfg.icon
 
           return (

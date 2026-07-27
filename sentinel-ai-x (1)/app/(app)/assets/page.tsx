@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search,
@@ -29,15 +29,32 @@ import {
   Database,
 } from 'lucide-react'
 import { DEMO_ASSETS } from '@/lib/data'
+import { fetchAssets } from '@/lib/api'
 import { RiskScore, StatusBadge } from '@/components/ui/severity-badge'
 import { cn } from '@/lib/utils'
 
 export default function AssetsPage() {
+  const [assets, setAssets] = useState(DEMO_ASSETS)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchAssets().then((res: any) => {
+      const rawAssets = res.assets || res || []
+      const mappedAssets = rawAssets.map((a: any) => ({
+        ...a,
+        lastScan: a.lastScan || a.last_scan || 'Unknown',
+        tags: a.tags ? (typeof a.tags === 'string' ? JSON.parse(a.tags) : a.tags) : []
+      }))
+      setAssets(mappedAssets)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
   const [search, setSearch] = useState('')
   const [selectedAsset, setSelectedAsset] = useState<(typeof DEMO_ASSETS)[0] | null>(null)
   const [riskFilter, setRiskFilter] = useState<string>('all')
 
-  const filtered = DEMO_ASSETS.filter((a) => {
+  const filtered = assets.filter((a) => {
     const matchSearch =
       !search ||
       a.hostname.toLowerCase().includes(search.toLowerCase()) ||
@@ -63,15 +80,15 @@ export default function AssetsPage() {
 
   const riskCounts = ['critical', 'high', 'medium', 'low'].map((r) => ({
     risk: r,
-    count: DEMO_ASSETS.filter((a) => a.risk === r).length,
+    count: assets.filter((a) => a.risk === r).length,
   }))
   const envCounts = {
-    production: DEMO_ASSETS.filter((a) => a.environment === 'production').length,
-    staging: DEMO_ASSETS.filter((a) => a.environment === 'staging').length,
-    development: DEMO_ASSETS.filter((a) => a.environment === 'development').length,
+    production: assets.filter((a) => a.environment === 'production').length,
+    staging: assets.filter((a) => a.environment === 'staging').length,
+    development: assets.filter((a) => a.environment === 'development').length,
   }
-  const cloudAssets = DEMO_ASSETS.filter((a) => a.cloud).length
-  const serverAssets = DEMO_ASSETS.filter((a) => !a.cloud).length
+  const cloudAssets = assets.filter((a) => a.cloud).length
+  const serverAssets = assets.filter((a) => !a.cloud).length
 
   return (
     <div className="space-y-6 p-6">
@@ -80,7 +97,7 @@ export default function AssetsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Asset Inventory</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {DEMO_ASSETS.length} assets tracked · Last updated 2 min ago
+            {assets.length} assets tracked · Last updated 2 min ago
           </p>
         </div>
         <button className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors self-start sm:self-auto">
@@ -113,7 +130,7 @@ export default function AssetsPage() {
             <p className={cn('text-2xl font-bold', item.color)}>{item.count}</p>
             <p className="text-xs text-muted-foreground mt-0.5 mb-2">{item.label} Risk</p>
             <div className="h-1 rounded-full bg-zinc-800">
-              <div className={cn('h-1 rounded-full', item.bar)} style={{ width: `${(item.count / DEMO_ASSETS.length) * 100}%` }} />
+              <div className={cn('h-1 rounded-full', item.bar)} style={{ width: `${(item.count / assets.length) * 100}%` }} />
             </div>
           </motion.button>
         ))}

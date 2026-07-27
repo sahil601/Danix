@@ -27,9 +27,11 @@ import {
   Layers,
   BarChart3,
   StopCircle,
+  FileText,
 } from 'lucide-react'
-import { DEMO_SCANS } from '@/lib/data'
+import { fetchScans, createScan, pauseScan, resumeScan, cancelScan } from '@/lib/api'
 import { StatusBadge } from '@/components/ui/severity-badge'
+import { ReportModal } from '@/components/ui/report-modal'
 import { cn } from '@/lib/utils'
 
 const SCAN_MODULES = [
@@ -47,50 +49,25 @@ const SCAN_PROFILES = [
   { id: 'deep', label: 'Deep', desc: '~2 hrs · Full assessment', time: '2 hrs' },
 ]
 
-const LIVE_LOG_LINES = [
-  '[10:32:01] INFO  Starting reconnaissance on acme.com',
-  '[10:32:03] INFO  DNS resolution: 203.0.113.10',
-  '[10:32:05] INFO  Port scan initiated on 203.0.113.10',
-  '[10:32:12] OK    Port 80/tcp open (http)',
-  '[10:32:12] OK    Port 443/tcp open (https)',
-  '[10:32:13] OK    Port 22/tcp open (ssh)',
-  '[10:32:18] WARN  TLS 1.0 detected on port 443',
-  '[10:32:22] INFO  Web application fingerprinting...',
-  '[10:32:28] CRIT  SQL injection vector found in /login',
-  '[10:32:35] INFO  Subdomain enumeration in progress...',
-]
+// Removed mock logs
 
-const AI_THOUGHTS = [
-  'Analyzing network topology and identifying entry points...',
-  'Cross-referencing open ports with known CVE database...',
-  'TLS 1.0 detected — flagging for cipher downgrade attack surface...',
-  'Evaluating authentication endpoint for injection vectors...',
-  'Confidence HIGH: SQL injection pattern confirmed via boolean-based test...',
-  'Mapping MITRE ATT&CK techniques: T1190 (Exploit Public-Facing Application)...',
-  'Generating risk score based on CVSS 3.1 metrics...',
-  'Correlating findings with existing asset inventory...',
-]
 
-const AGENT_TIMELINE = [
-  { agent: 'Supervisor', task: 'Orchestrating scan execution', status: 'done', time: '0s' },
-  { agent: 'Planner', task: 'Decomposing scan into 6 sub-tasks', status: 'done', time: '1s' },
-  { agent: 'Recon', task: 'DNS enumeration & subdomain discovery', status: 'done', time: '8s' },
-  { agent: 'Network', task: 'Port scanning 203.0.113.10', status: 'running', time: '14s' },
-  { agent: 'Web', task: 'HTTP fingerprinting & fuzzing', status: 'pending', time: '—' },
-  { agent: 'Reasoning', task: 'CVE correlation & risk scoring', status: 'pending', time: '—' },
-  { agent: 'Reporting', task: 'Generating findings report', status: 'pending', time: '—' },
-]
-
-const TOOL_CARDS = [
-  { name: 'nmap', status: 'done', result: '23 ports scanned, 3 open', icon: Network },
-  { name: 'gobuster', status: 'done', result: '14 endpoints discovered', icon: Globe },
-  { name: 'nikto', status: 'running', result: 'Scanning /login, /api...', icon: Shield },
-  { name: 'sqlmap', status: 'running', result: 'Testing injection vectors...', icon: AlertTriangle },
-  { name: 'sslscan', status: 'pending', result: '—', icon: Shield },
-  { name: 'whatweb', status: 'pending', result: '—', icon: Server },
-]
 
 export default function ScansPage() {
+  const [scans, setScans] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const loadScans = () => {
+    fetchScans().then(res => {
+      setScans((res as any).scans || res)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadScans()
+  }, [])
+
   const [wizardOpen, setWizardOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [profile, setProfile] = useState('normal')
@@ -99,36 +76,83 @@ export default function ScansPage() {
   const [selectedModules, setSelectedModules] = useState(['network', 'web', 'ssl', 'dns'])
   const [scanning, setScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState(0)
-  const [logIndex, setLogIndex] = useState(0)
+  const [liveLogs, setLiveLogs] = useState<string[]>([])
+  const [currentPhase, setCurrentPhase] = useState<string | null>(null)
+  const [completedPhases, setCompletedPhases] = useState<string[]>([])
   const [search, setSearch] = useState('')
-  const [aiThoughtIndex, setAiThoughtIndex] = useState(0)
-  const [showExecutionCenter, setShowExecutionCenter] = useState(false)
-
-  useEffect(() => {
-    if (!scanning) return
-    const interval = setInterval(() => {
-      setScanProgress((p) => {
-        if (p >= 100) { clearInterval(interval); setScanning(false); return 100 }
-        return p + 2
-      })
-      setLogIndex((l) => Math.min(l + 1, LIVE_LOG_LINES.length - 1))
-      setAiThoughtIndex((i) => (i + 1) % AI_THOUGHTS.length)
-    }, 600)
-    return () => clearInterval(interval)
-  }, [scanning])
+  const [viewingReportId, setViewingReportId] = useState<string | null>(null)
+  const [currentScanId, setCurrentScanId] = useState<string | null>(null)
 
   const toggleModule = (id: string) =>
     setSelectedModules((prev) => prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id])
 
-  const filtered = DEMO_SCANS.filter(
+  const filtered = scans.filter(
     (s) => !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.target.includes(search)
   )
 
-  const startScan = () => {
-    setStep(3)
-    setScanProgress(0)
-    setLogIndex(0)
-    setScanning(true)
+  const startScan = async () => {
+    try {
+      const newScan = await createScan({
+        name: `Scan on ${target || 'target'}`,
+        target: target || 'example.com',
+        target_type: targetType,
+        profile: profile,
+      })
+      setCurrentScanId(newScan.id)
+      setScans((prev) => [newScan, ...prev])
+      setStep(3)
+      setScanProgress(0)
+      setLiveLogs([])
+      setCurrentPhase(null)
+      setCompletedPhases([])
+      setScanning(true)
+      
+      const response = await fetch(`/api/v1/scans/${newScan.id}/stream`)
+      if (!response.ok) throw new Error('API Error')
+      
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6).trim()
+              if (!dataStr || dataStr === '{}') continue
+              try {
+                const data = JSON.parse(dataStr)
+                if (data.log) {
+                  setLiveLogs((prev) => [...prev, data.log])
+                }
+                if (data.node) {
+                  setCurrentPhase(data.node)
+                  setCompletedPhases((prev) => [...new Set([...prev, data.node])])
+                }
+                if (data.done || data.error) {
+                  setScanProgress(100)
+                  setCurrentPhase(null)
+                  setScanning(false)
+                  loadScans()
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e)
+      setScanning(false)
+    }
   }
 
   const logColor = (line: string) => {
@@ -145,7 +169,7 @@ export default function ScansPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Scans</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {DEMO_SCANS.length} scans · {DEMO_SCANS.filter((s) => s.status === 'running').length} running
+            {scans.length} scans · {scans.filter((s) => s.status === 'running').length} running
           </p>
         </div>
         <button
@@ -219,18 +243,24 @@ export default function ScansPage() {
                 </div>
                 <div className="flex gap-1.5">
                   {scan.status === 'running' && (
-                    <button className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                    <button title="Pause Scan" onClick={() => pauseScan(scan.id).then(loadScans)} className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
                       <Pause className="size-3.5" />
                     </button>
                   )}
                   {scan.status === 'paused' && (
-                    <button className="rounded-lg bg-primary/10 p-1.5 text-primary hover:bg-primary/20 transition-colors">
+                    <button title="Resume Scan" onClick={() => resumeScan(scan.id).then(loadScans)} className="rounded-lg bg-primary/10 p-1.5 text-primary hover:bg-primary/20 transition-colors">
                       <Play className="size-3.5" />
                     </button>
                   )}
-                  <button className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-                    <ChevronRight className="size-3.5" />
-                  </button>
+                  {['running', 'paused', 'queued'].includes(scan.status) ? (
+                    <button title="Cancel Scan" onClick={() => cancelScan(scan.id).then(loadScans)} className="rounded-lg border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                      <StopCircle className="size-3.5" />
+                    </button>
+                  ) : (
+                    <button title="View Report" onClick={() => setViewingReportId(scan.id)} className="rounded-lg border border-border bg-primary/5 p-1.5 text-primary hover:bg-primary/20 hover:border-primary/30 transition-colors">
+                      <FileText className="size-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -250,160 +280,7 @@ export default function ScansPage() {
         ))}
       </div>
 
-      {/* Execution Center — shown when there is a running scan */}
-      {DEMO_SCANS.some((s) => s.status === 'running') && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card overflow-hidden"
-        >
-          {/* Header */}
-          <div
-            className="flex items-center justify-between px-5 py-4 cursor-pointer"
-            onClick={() => setShowExecutionCenter((v) => !v)}
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex size-8 items-center justify-center rounded-xl bg-blue-500/15">
-                <Activity className="size-4 text-blue-400 animate-pulse" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">AI Execution Center</h3>
-                <p className="text-[11px] text-muted-foreground">FinTrust API Discovery · 67% complete · ETA 24 min</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                <Pause className="size-3" /> Pause
-              </button>
-              <button className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/20 transition-colors">
-                <StopCircle className="size-3" /> Cancel
-              </button>
-              <ChevronRight className={cn('size-4 text-muted-foreground transition-transform', showExecutionCenter && 'rotate-90')} />
-            </div>
-          </div>
 
-          {/* Overall progress */}
-          <div className="px-5 pb-3">
-            <div className="flex items-center justify-between text-xs mb-1.5">
-              <span className="text-muted-foreground">Overall Progress</span>
-              <span className="font-semibold text-blue-400">67%</span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-zinc-800">
-              <motion.div
-                className="h-2 rounded-full bg-blue-500"
-                initial={{ width: 0 }}
-                animate={{ width: '67%' }}
-                transition={{ duration: 1, ease: 'easeOut' }}
-              />
-            </div>
-          </div>
-
-          <AnimatePresence>
-            {showExecutionCenter && (
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: 'auto' }}
-                exit={{ height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="border-t border-border/50 p-5 grid gap-4 lg:grid-cols-3">
-
-                  {/* Agent Timeline */}
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-                      <Bot className="size-3.5 text-primary" /> Agent Timeline
-                    </h4>
-                    <div className="space-y-2">
-                      {AGENT_TIMELINE.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2.5">
-                          <span className={cn(
-                            'size-2 rounded-full flex-shrink-0',
-                            item.status === 'done' ? 'bg-green-400' :
-                            item.status === 'running' ? 'bg-blue-400 animate-pulse' :
-                            'bg-zinc-700'
-                          )} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-foreground truncate">{item.agent}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{item.task}</p>
-                          </div>
-                          <span className={cn(
-                            'text-[10px] font-mono flex-shrink-0',
-                            item.status === 'running' ? 'text-blue-400' :
-                            item.status === 'done' ? 'text-green-400' : 'text-zinc-600'
-                          )}>{item.time}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* AI Thoughts + Tool Cards */}
-                  <div className="space-y-4">
-                    {/* AI Thoughts */}
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-                        <Brain className="size-3.5 text-purple-400" /> AI Thoughts
-                      </h4>
-                      <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 min-h-[60px]">
-                        <AnimatePresence mode="wait">
-                          <motion.p
-                            key={aiThoughtIndex}
-                            initial={{ opacity: 0, y: 4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
-                            transition={{ duration: 0.3 }}
-                            className="text-xs text-purple-300 leading-relaxed"
-                          >
-                            {AI_THOUGHTS[aiThoughtIndex]}
-                          </motion.p>
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tool Execution Cards */}
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-                      <Layers className="size-3.5 text-cyan-400" /> Tool Execution
-                    </h4>
-                    <div className="space-y-2">
-                      {TOOL_CARDS.map((tool, i) => {
-                        const ToolIcon = tool.icon
-                        return (
-                          <div key={i} className={cn(
-                            'flex items-center gap-2.5 rounded-lg border p-2.5',
-                            tool.status === 'done' ? 'border-green-500/20 bg-green-500/5' :
-                            tool.status === 'running' ? 'border-blue-500/20 bg-blue-500/5' :
-                            'border-border bg-zinc-900/30'
-                          )}>
-                            <ToolIcon className={cn(
-                              'size-3.5 flex-shrink-0',
-                              tool.status === 'done' ? 'text-green-400' :
-                              tool.status === 'running' ? 'text-blue-400' : 'text-zinc-600'
-                            )} />
-                            <div className="flex-1 min-w-0">
-                              <p className={cn('text-xs font-mono font-medium', tool.status === 'pending' ? 'text-zinc-600' : 'text-foreground')}>
-                                {tool.name}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground truncate">{tool.result}</p>
-                            </div>
-                            {tool.status === 'running' && (
-                              <Loader2 className="size-3 text-blue-400 animate-spin flex-shrink-0" />
-                            )}
-                            {tool.status === 'done' && (
-                              <CheckCircle2 className="size-3 text-green-400 flex-shrink-0" />
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      )}
 
       {/* Scan Wizard Modal */}
       <AnimatePresence>
@@ -434,7 +311,7 @@ export default function ScansPage() {
                     ))}
                   </div>
                 </div>
-                {!scanning && (
+                {!(step === 3 && !scanning) && (
                   <button onClick={() => setWizardOpen(false)} className="text-muted-foreground hover:text-foreground transition-colors">
                     <X className="size-5" />
                   </button>
@@ -576,20 +453,55 @@ export default function ScansPage() {
               {/* Step 3: Live Scan */}
               {step === 3 && (
                 <div className="p-6 space-y-4">
-                  {/* Progress */}
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{scanning ? 'Scanning...' : 'Scan Complete!'}</span>
-                    <div className="flex items-center gap-2">
-                      {scanning ? <Loader2 className="size-4 text-primary animate-spin" /> : <CheckCircle2 className="size-4 text-green-400" />}
-                      <span className="text-sm font-bold tabular-nums">{scanProgress}%</span>
+                  {/* Progress & Phases */}
+                  <div className="flex flex-col gap-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{scanning ? 'Agent Workflow Active...' : 'Scan Complete!'}</span>
+                      <div className="flex items-center gap-2">
+                        {scanning ? <Loader2 className="size-4 text-primary animate-spin" /> : <CheckCircle2 className="size-4 text-green-400" />}
+                        <span className="text-sm font-bold tabular-nums">{scanProgress}%</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-zinc-800">
-                    <motion.div
-                      className={cn('h-2 rounded-full', scanning ? 'bg-primary' : 'bg-green-500')}
-                      animate={{ width: `${scanProgress}%` }}
-                      transition={{ duration: 0.3 }}
-                    />
+                    
+                    {/* Agent Workflow Visualizer */}
+                    <div className="relative py-4">
+                      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-zinc-800" />
+                      <div className="space-y-4">
+                        {[
+                          { id: 'plan', label: 'Planner Agent' },
+                          { id: 'recon', label: 'Recon Agent' },
+                          { id: 'network_analysis', label: 'Network Analyst' },
+                          { id: 'web_analysis', label: 'Web Analyst' },
+                          { id: 'reasoning', label: 'Reasoning Engine' },
+                          { id: 'report', label: 'Report Writer' }
+                        ].map((phase, i) => {
+                          const isActive = currentPhase === phase.id;
+                          const isCompleted = completedPhases.includes(phase.id);
+                          const isPending = !isActive && !isCompleted;
+                          
+                          return (
+                            <div key={phase.id} className="relative flex items-center gap-3">
+                              <div className={cn(
+                                "flex size-8 flex-shrink-0 items-center justify-center rounded-full border-2 bg-card z-10 transition-colors",
+                                isActive ? "border-primary text-primary" :
+                                isCompleted ? "border-green-500 text-green-500" :
+                                "border-zinc-700 text-zinc-600"
+                              )}>
+                                {isCompleted ? <CheckCircle2 className="size-4" /> : <Brain className={cn("size-4", isActive && "animate-pulse")} />}
+                              </div>
+                              <div className="flex-1">
+                                <p className={cn(
+                                  "text-sm font-medium transition-colors",
+                                  isActive ? "text-primary" :
+                                  isCompleted ? "text-foreground" :
+                                  "text-muted-foreground"
+                                )}>{phase.label}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Terminal */}
@@ -598,7 +510,7 @@ export default function ScansPage() {
                       <Terminal className="size-3.5 text-zinc-500" />
                       <span className="text-[10px] text-zinc-500">SentinelAI Scanner v2.4.1</span>
                     </div>
-                    {LIVE_LOG_LINES.slice(0, logIndex + 1).map((line, i) => (
+                    {liveLogs.map((line, i) => (
                       <motion.div
                         key={i}
                         initial={{ opacity: 0, x: -4 }}
@@ -626,7 +538,10 @@ export default function ScansPage() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => setWizardOpen(false)}
+                        onClick={() => {
+                          setWizardOpen(false)
+                          if (currentScanId) setViewingReportId(currentScanId)
+                        }}
                         className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors"
                       >
                         View Results
@@ -637,6 +552,12 @@ export default function ScansPage() {
               )}
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {viewingReportId && (
+          <ReportModal scanId={viewingReportId} onClose={() => setViewingReportId(null)} />
         )}
       </AnimatePresence>
     </div>

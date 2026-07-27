@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -39,20 +40,15 @@ import {
   SYSTEM_STATUS,
   AI_RECOMMENDATIONS,
 } from '@/lib/data'
+import { fetchProjects, fetchFindings, fetchActivityFeed } from '@/lib/api'
 
-const METRICS = [
-  { title: 'Critical Vulnerabilities', value: 14, change: 4, icon: AlertTriangle, iconColor: 'text-red-400', iconBg: 'bg-red-500/10' },
-  { title: 'High Severity', value: 34, change: 2, icon: ShieldAlert, iconColor: 'text-orange-400', iconBg: 'bg-orange-500/10' },
-  { title: 'Medium Findings', value: 82, change: -5, icon: AlertCircle, iconColor: 'text-yellow-400', iconBg: 'bg-yellow-500/10' },
-  { title: 'Low Risk', value: 138, change: 8, icon: Activity, iconColor: 'text-blue-400', iconBg: 'bg-blue-500/10' },
-  { title: 'Live Hosts', value: 487, change: 12, icon: Server, iconColor: 'text-green-400', iconBg: 'bg-green-500/10' },
-  { title: 'Open Ports', value: 1243, change: -3, icon: Globe, iconColor: 'text-cyan-400', iconBg: 'bg-cyan-500/10' },
-  { title: 'Active Projects', value: 6, change: 1, icon: FolderKanban, iconColor: 'text-purple-400', iconBg: 'bg-purple-500/10' },
-  { title: 'Total Assets', value: 142, change: 7, icon: Server, iconColor: 'text-indigo-400', iconBg: 'bg-indigo-500/10' },
-  { title: 'Scans Run', value: 28, change: 3, icon: ScanLine, iconColor: 'text-primary', iconBg: 'bg-primary/10' },
-  { title: 'Reports Generated', value: 12, change: 2, icon: FileText, iconColor: 'text-zinc-400', iconBg: 'bg-zinc-500/10' },
-  { title: 'AI Conversations', value: 47, change: 11, icon: Bot, iconColor: 'text-emerald-400', iconBg: 'bg-emerald-500/10' },
-  { title: 'Security Score', value: 72, suffix: '%', change: -3, icon: ShieldCheck, iconColor: 'text-primary', iconBg: 'bg-primary/10' },
+const METRICS = (data: any) => [
+  { title: 'Critical Vulnerabilities', value: data?.findings_count || 0, change: 0, icon: AlertTriangle, iconColor: 'text-red-400', iconBg: 'bg-red-500/10' },
+  { title: 'Total Findings', value: data?.findings_count || 0, change: 0, icon: AlertCircle, iconColor: 'text-yellow-400', iconBg: 'bg-yellow-500/10' },
+  { title: 'Live Hosts', value: data?.assets_count || 0, change: 0, icon: Server, iconColor: 'text-green-400', iconBg: 'bg-green-500/10' },
+  { title: 'Active Projects', value: data?.projects_count || 0, change: 0, icon: FolderKanban, iconColor: 'text-purple-400', iconBg: 'bg-purple-500/10' },
+  { title: 'Scans Run', value: data?.scans_count || 0, change: 0, icon: ScanLine, iconColor: 'text-primary', iconBg: 'bg-primary/10' },
+  { title: 'Reports Generated', value: 0, change: 0, icon: FileText, iconColor: 'text-zinc-400', iconBg: 'bg-zinc-500/10' },
 ]
 
 const QUICK_ACTIONS = [
@@ -63,6 +59,22 @@ const QUICK_ACTIONS = [
 ]
 
 export default function DashboardPage() {
+  const [projects, setProjects] = useState(DEMO_PROJECTS)
+  const [findings, setFindings] = useState(DEMO_FINDINGS)
+  const [activityFeed, setActivityFeed] = useState(ACTIVITY_FEED)
+  const [overviewData, setOverviewData] = useState<any>({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    import('@/lib/api').then(({ fetchProjects, fetchFindings, fetchActivityFeed, fetchDashboardOverview }) => {
+      fetchProjects().then(res => setProjects(res.projects || res)).catch(() => {})
+      fetchFindings().then(res => setFindings(res.findings || res)).catch(() => {})
+      fetchActivityFeed().then(res => setActivityFeed((res as any).activityFeed || res)).catch(() => {})
+      fetchDashboardOverview().then(res => setOverviewData(res)).catch(() => {})
+      setLoading(false)
+    })
+  }, [])
+
   return (
     <div className="space-y-6 p-6">
       {/* Hero Welcome */}
@@ -126,7 +138,7 @@ export default function DashboardPage() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        {METRICS.map((metric, i) => (
+        {METRICS(overviewData).map((metric, i) => (
           <MetricCard
             key={metric.title}
             title={metric.title}
@@ -136,7 +148,7 @@ export default function DashboardPage() {
             iconColor={metric.iconColor}
             iconBg={metric.iconBg}
             delay={i * 0.04}
-            suffix={metric.suffix}
+            suffix={(metric as any).suffix}
           />
         ))}
       </div>
@@ -177,7 +189,7 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="space-y-3">
-            {ACTIVITY_FEED.slice(0, 6).map((item) => (
+            {activityFeed.slice(0, 6).map((item: any) => (
               <div key={item.id} className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
                   {item.severity === 'critical' ? (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   User,
@@ -32,6 +32,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SYSTEM_STATUS } from '@/lib/data'
+import { fetchSystemStatus } from '@/lib/api'
 
 /* ── Sidebar sections ─────────────────────────────────────────────────────── */
 const SETTINGS_NAV = [
@@ -103,6 +104,16 @@ function SectionHeader({ title, desc }: { title: string; desc?: string }) {
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function SettingsPage() {
+  const [systemStatus, setSystemStatus] = useState(SYSTEM_STATUS)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchSystemStatus().then(res => {
+      setSystemStatus(res.systemStatus || res)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
   const [activeSection, setActiveSection] = useState('profile')
   const [showKey, setShowKey] = useState<Record<string, boolean>>({})
   const [saved, setSaved] = useState(false)
@@ -434,9 +445,9 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[
-                  { label: 'CPU Usage', value: `${SYSTEM_STATUS.cpu}%`, color: 'text-primary', bar: SYSTEM_STATUS.cpu },
-                  { label: 'RAM Usage', value: `${SYSTEM_STATUS.ram}%`, color: 'text-yellow-400', bar: SYSTEM_STATUS.ram },
-                  { label: 'Knowledge Index', value: SYSTEM_STATUS.knowledgeIndex, color: 'text-green-400', bar: 98 },
+                  { label: 'CPU Usage', value: `${systemStatus.cpu}%`, color: 'text-primary', bar: systemStatus.cpu },
+                  { label: 'RAM Usage', value: `${systemStatus.ram}%`, color: 'text-yellow-400', bar: systemStatus.ram },
+                  { label: 'Knowledge Index', value: systemStatus.knowledgeIndex, color: 'text-green-400', bar: 98 },
                 ].map((s) => (
                   <div key={s.label} className="rounded-xl border border-border bg-card p-4">
                     <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
@@ -460,7 +471,7 @@ export default function SettingsPage() {
                   </span>
                 </SettingsRow>
                 <SettingsRow label="Background Jobs" description="Active processing workers">
-                  <span className="text-sm font-semibold text-foreground">{SYSTEM_STATUS.backgroundJobs} active</span>
+                  <span className="text-sm font-semibold text-foreground">{systemStatus.backgroundJobs} active</span>
                 </SettingsRow>
                 <SettingsRow label="Agent Orchestrator" description="Multi-agent system coordinator">
                   <span className="flex items-center gap-1.5 text-xs font-medium text-green-400">

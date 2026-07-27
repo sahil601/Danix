@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus,
@@ -28,18 +28,41 @@ import {
   BarChart2,
 } from 'lucide-react'
 import { DEMO_PROJECTS } from '@/lib/data'
+import { fetchProjects } from '@/lib/api'
 import { SeverityBadge, RiskScore, StatusBadge } from '@/components/ui/severity-badge'
 import { cn } from '@/lib/utils'
 
 type FilterStatus = 'all' | 'active' | 'completed' | 'paused' | 'archived'
 
 export default function ProjectsPage() {
+  const [projects, setProjects] = useState(DEMO_PROJECTS)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchProjects().then((res: any) => {
+      // Handle the fact that our backend returns a dictionary containing 'projects' array
+      // Some properties in UI mock (like riskScore, updatedAt, members) need to be mapped from backend fields
+      const rawProjects = res.projects || res || []
+      const mappedProjects = rawProjects.map((p: any) => ({
+        ...p,
+        riskScore: p.riskScore || p.risk_score || 0,
+        updatedAt: p.updatedAt || p.updated_at || p.created_at || 'Just now',
+        members: p.members ? (typeof p.members === 'string' ? JSON.parse(p.members) : p.members) : [],
+        tags: p.tags ? (typeof p.tags === 'string' ? JSON.parse(p.tags) : p.tags) : [],
+        findings: p.findings || { critical: 0, high: 0, medium: 0, low: 0 },
+        assets: p.assets || 0
+      }))
+      setProjects(mappedProjects)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [search, setSearch] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
 
-  const filtered = DEMO_PROJECTS.filter((p) => {
+  const filtered = projects.filter((p) => {
     const matchFilter = filter === 'all' || p.status === filter
     const matchSearch =
       !search ||
@@ -49,17 +72,17 @@ export default function ProjectsPage() {
   })
 
   const tabs: { label: string; value: FilterStatus; count: number }[] = [
-    { label: 'All', value: 'all', count: DEMO_PROJECTS.length },
-    { label: 'Active', value: 'active', count: DEMO_PROJECTS.filter((p) => p.status === 'active').length },
-    { label: 'Completed', value: 'completed', count: DEMO_PROJECTS.filter((p) => p.status === 'completed').length },
-    { label: 'Paused', value: 'paused', count: DEMO_PROJECTS.filter((p) => p.status === 'paused').length },
-    { label: 'Archived', value: 'archived', count: DEMO_PROJECTS.filter((p) => p.status === 'archived').length },
+    { label: 'All', value: 'all', count: projects.length },
+    { label: 'Active', value: 'active', count: projects.filter((p) => p.status === 'active').length },
+    { label: 'Completed', value: 'completed', count: projects.filter((p) => p.status === 'completed').length },
+    { label: 'Paused', value: 'paused', count: projects.filter((p) => p.status === 'paused').length },
+    { label: 'Archived', value: 'archived', count: projects.filter((p) => p.status === 'archived').length },
   ]
 
-  const totalFindings = DEMO_PROJECTS.reduce((sum, p) => sum + p.findings.critical + p.findings.high + p.findings.medium + p.findings.low, 0)
-  const totalAssets = DEMO_PROJECTS.reduce((sum, p) => sum + p.assets, 0)
-  const avgRisk = Math.round(DEMO_PROJECTS.reduce((sum, p) => sum + p.riskScore, 0) / DEMO_PROJECTS.length)
-  const criticalCount = DEMO_PROJECTS.reduce((sum, p) => sum + p.findings.critical, 0)
+  const totalFindings = projects.reduce((sum, p) => sum + p.findings.critical + p.findings.high + p.findings.medium + p.findings.low, 0)
+  const totalAssets = projects.reduce((sum, p) => sum + p.assets, 0)
+  const avgRisk = Math.round(projects.reduce((sum, p) => sum + p.riskScore, 0) / projects.length)
+  const criticalCount = projects.reduce((sum, p) => sum + p.findings.critical, 0)
 
   return (
     <div className="space-y-6 p-6">
@@ -68,7 +91,7 @@ export default function ProjectsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Projects</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {DEMO_PROJECTS.length} projects · {DEMO_PROJECTS.filter((p) => p.status === 'active').length} active
+            {projects.length} projects · {projects.filter((p) => p.status === 'active').length} active
           </p>
         </div>
         <button
@@ -86,7 +109,7 @@ export default function ProjectsPage() {
           { label: 'Total Assets', value: totalAssets.toLocaleString(), icon: Server, color: 'text-blue-400', bg: 'bg-blue-500/10', trend: '+12% this month' },
           { label: 'Total Findings', value: totalFindings.toLocaleString(), icon: Target, color: 'text-orange-400', bg: 'bg-orange-500/10', trend: `${criticalCount} critical` },
           { label: 'Avg Risk Score', value: avgRisk.toString(), icon: BarChart2, color: avgRisk >= 70 ? 'text-red-400' : avgRisk >= 50 ? 'text-orange-400' : 'text-yellow-400', bg: avgRisk >= 70 ? 'bg-red-500/10' : 'bg-orange-500/10', trend: 'Across all projects' },
-          { label: 'Active Projects', value: DEMO_PROJECTS.filter((p) => p.status === 'active').length.toString(), icon: Activity, color: 'text-green-400', bg: 'bg-green-500/10', trend: `${DEMO_PROJECTS.filter((p) => p.status === 'completed').length} completed` },
+          { label: 'Active Projects', value: projects.filter((p) => p.status === 'active').length.toString(), icon: Activity, color: 'text-green-400', bg: 'bg-green-500/10', trend: `${projects.filter((p) => p.status === 'completed').length} completed` },
         ].map((kpi, i) => {
           const Icon = kpi.icon
           return (
@@ -306,11 +329,11 @@ export default function ProjectsPage() {
                 {/* Footer */}
                 <div className="flex items-center justify-between pt-3 border-t border-border">
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><Users className="size-3" />{project.members.length} members</span>
+                    <span className="flex items-center gap-1"><Users className="size-3" />{Array.isArray(project.members) ? project.members.length : 0} members</span>
                     <span className="flex items-center gap-1"><Calendar className="size-3" />{project.updatedAt}</span>
                   </div>
                   <div className="flex -space-x-1.5">
-                    {project.members.slice(0, 3).map((m) => (
+                    {(Array.isArray(project.members) ? project.members : []).slice(0, 3).map((m: any) => (
                       <div key={m} className="flex size-6 items-center justify-center rounded-full bg-gradient-to-br from-zinc-600 to-zinc-800 ring-2 ring-card text-[9px] font-bold text-white">
                         {m}
                       </div>
@@ -320,7 +343,7 @@ export default function ProjectsPage() {
 
                 {/* Tags */}
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {project.tags.map((tag) => (
+                  {(Array.isArray(project.tags) ? project.tags : []).map((tag: any) => (
                     <span key={tag} className="rounded-md bg-zinc-800/60 px-1.5 py-0.5 text-[10px] text-zinc-400">
                       {tag}
                     </span>

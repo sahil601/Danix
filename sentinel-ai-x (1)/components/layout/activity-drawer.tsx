@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X,
@@ -13,6 +14,7 @@ import {
   Download,
 } from 'lucide-react'
 import { ACTIVITY_FEED } from '@/lib/data'
+import { fetchActivityFeed } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const ACTIVITY_ICONS: Record<string, { icon: typeof Activity; color: string; bg: string }> = {
@@ -26,21 +28,27 @@ const ACTIVITY_ICONS: Record<string, { icon: typeof Activity; color: string; bg:
   ai_chat: { icon: Bot, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
 }
 
-const EXTENDED_FEED = [
-  ...ACTIVITY_FEED,
-  { id: 'act-8', type: 'ai_chat', message: 'AI conversation: Prioritize FinTrust vulnerabilities', time: '4h ago', user: 'JD', severity: null },
-  { id: 'act-9', type: 'project_created', message: 'Project "RetailMax API Penetration Test" created', time: '6h ago', user: 'SK', severity: null },
-  { id: 'act-10', type: 'scan_started', message: 'Quick scan launched on medhealth.io', time: '8h ago', user: 'MP', severity: null },
-  { id: 'act-11', type: 'finding_high', message: 'High severity: Missing HSTS on banking portal', time: '10h ago', user: 'ReconAgent', severity: 'high' },
-  { id: 'act-12', type: 'report_generated', message: 'HIPAA compliance report generated for MedHealth', time: '1d ago', user: 'LK', severity: null },
-]
-
 interface ActivityDrawerProps {
   open: boolean
   onClose: () => void
 }
 
 export function ActivityDrawer({ open, onClose }: ActivityDrawerProps) {
+  const [activityFeed, setActivityFeed] = useState(ACTIVITY_FEED)
+
+  useEffect(() => {
+    fetchActivityFeed().then(res => setActivityFeed(res.activity_feed || res)).catch(() => {})
+  }, [])
+
+  const EXTENDED_FEED = [
+    ...activityFeed,
+    { id: 'act-8', type: 'ai_chat', message: 'AI conversation: Prioritize FinTrust vulnerabilities', time: '4h ago', user: 'JD', severity: null },
+    { id: 'act-9', type: 'project_created', message: 'Project "RetailMax API Penetration Test" created', time: '6h ago', user: 'SK', severity: null },
+    { id: 'act-10', type: 'scan_started', message: 'Quick scan launched on medhealth.io', time: '8h ago', user: 'MP', severity: null },
+    { id: 'act-11', type: 'finding_high', message: 'High severity: Missing HSTS on banking portal', time: '10h ago', user: 'ReconAgent', severity: 'high' },
+    { id: 'act-12', type: 'report_generated', message: 'HIPAA compliance report generated for MedHealth', time: '1d ago', user: 'LK', severity: null },
+  ]
+
   return (
     <AnimatePresence>
       {open && (

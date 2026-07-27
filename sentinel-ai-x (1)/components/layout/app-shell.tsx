@@ -20,6 +20,11 @@ export function AppShell({ children }: AppShellProps) {
   const [commandOpen, setCommandOpen] = useState(false)
   const [activityOpen, setActivityOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Keyboard shortcut: ? for shortcuts modal
   useEffect(() => {
@@ -31,6 +36,8 @@ export function AppShell({ children }: AppShellProps) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
+
+  if (!mounted) return null
 
   return (
     <ToastProvider>

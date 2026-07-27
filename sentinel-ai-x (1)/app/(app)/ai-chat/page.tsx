@@ -25,6 +25,7 @@ import {
   Trash2,
   MoreHorizontal,
 } from 'lucide-react'
+import { fetchConversations, fetchMessages } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
@@ -53,75 +54,6 @@ const SUGGESTIONS = [
   { icon: Search, text: 'What MITRE ATT&CK techniques apply to these findings?', color: 'text-green-400 bg-green-500/10 border-green-500/20 hover:bg-green-500/15' },
   { icon: Sparkles, text: 'Generate a risk prioritization matrix for FinTrust', color: 'text-purple-400 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/15' },
 ]
-
-/* ── Demo conversation history ────────────────────────────────────────────── */
-const CONVERSATIONS = [
-  { id: 'c-1', title: 'Explain RCE findings', date: 'Today', preview: 'The CVE-2021-44228 vulnerability...' },
-  { id: 'c-2', title: 'Prioritize FinTrust vulnerabilities', date: 'Yesterday', preview: 'Based on CVSS scores and...' },
-  { id: 'c-3', title: 'HIPAA compliance analysis', date: 'Jul 17', preview: 'MedHealth Systems requires...' },
-  { id: 'c-4', title: 'Network segmentation review', date: 'Jul 15', preview: 'The lateral movement paths...' },
-]
-
-/* ── Canned AI responses ──────────────────────────────────────────────────── */
-const AI_RESPONSES: Record<string, string> = {
-  default: `**Analysis complete.** Based on your current security posture and the findings across your active projects:
-
-## Key Observations
-
-1. **Critical Attack Vector**: The RCE via deserialization on \`api-gw.acme.com\` (CVE-2021-44228) represents the highest priority threat. This vulnerability is actively exploited in the wild.
-
-2. **Authentication Weaknesses**: SQL injection in the authentication endpoint combined with the unauthenticated admin panel on \`vpn.fintrust.net\` creates a significant compromise risk.
-
-3. **Credential Exposure**: Active AWS keys in a public repository require immediate rotation and CloudTrail audit.
-
-## Recommended Immediate Actions
-
-\`\`\`bash
-# 1. Isolate affected service (emergency measure)
-kubectl cordon api-gw-node
-# 2. Apply Log4j patch
-apt-get update && apt-get install -y liblog4j2-java=2.17.1
-# 3. Rotate AWS credentials
-aws iam update-access-key --access-key-id AKIA... --status Inactive
-\`\`\`
-
-## Risk Summary
-
-| Severity | Count | CVSS Avg |
-|----------|-------|----------|
-| Critical | 3 | 9.4 |
-| High | 12 | 7.8 |
-| Medium | 28 | 5.2 |
-| Low | 47 | 3.1 |
-
-> **Note**: Addressing the 3 critical findings alone would reduce your organization risk score from **78** to approximately **52**.`,
-
-  rce: `## RCE via Deserialization — Detailed Analysis
-
-The vulnerability affects \`api-gw.acme.com\` on endpoint \`POST /api/v2/import\`.
-
-### Root Cause
-Java's native serialization mechanism accepts untrusted data without validation. When a crafted Java serialization payload (gadget chain) is submitted, it executes arbitrary code during the deserialization process.
-
-### Exploitation Chain
-\`\`\`
-Attacker → POST /api/v2/import → Malicious payload (Base64 Java obj) 
-→ ObjectInputStream.readObject() → Gadget chain execution → OS command
-\`\`\`
-
-### MITRE ATT&CK Mapping
-- **T1190** — Exploit Public-Facing Application
-- **T1059** — Command and Scripting Interpreter
-
-### Remediation Steps
-1. Patch to Log4j 2.17.1+ immediately
-2. Implement \`SerialKiller\` library to whitelist deserializable classes
-3. Apply JVM flag: \`-Dcom.sun.jndi.rmi.object.trustURLCodebase=false\`
-4. Enable RASP (Runtime Application Self-Protection)
-5. Verify fix with a follow-up scan to confirm the patch was applied correctly
-
-**Confidence**: 98% · **CVSS**: 9.8 Critical`,
-}
 
 /* ── Render markdown-ish content ──────────────────────────────────────────── */
 function MessageContent({ content }: { content: string }) {
@@ -169,6 +101,7 @@ function MessageContent({ content }: { content: string }) {
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function AIChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
+  const [conversations, setConversations] = useState<any[]>([])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [activeAgent, setActiveAgent] = useState(AGENTS[0])
@@ -178,6 +111,28 @@ export default function AIChatPage() {
   const [showPinned, setShowPinned] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    fetchConversations().then(setConversations).catch(console.error)
+  }, [])
+
+  useEffect(() => {
+    if (!activeConversation) {
+      setMessages([])
+      return
+    }
+    if (isTyping) return // skip overwriting during live stream
+
+    fetchMessages(activeConversation).then((msgs) => {
+      setMessages(msgs.map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        pinned: m.pinned
+      })))
+    }).catch(console.error)
+  }, [activeConversation, isTyping])
 
   const togglePin = (id: string) => {
     setMessages((prev) => prev.map((m) => m.id === id ? { ...m, pinned: !m.pinned } : m))
@@ -209,23 +164,76 @@ export default function AIChatPage() {
       content,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
-    setMessages((prev) => [...prev, userMsg])
-    setIsTyping(true)
-
-    await new Promise((r) => setTimeout(r, 1400 + Math.random() * 800))
-
-    const response = content.toLowerCase().includes('rce') || content.toLowerCase().includes('deserialization')
-      ? AI_RESPONSES.rce
-      : AI_RESPONSES.default
-
-    const aiMsg: Message = {
-      id: (Date.now() + 1).toString(),
+    
+    const aiMsgId = (Date.now() + 1).toString()
+    const initialAiMsg: Message = {
+      id: aiMsgId,
       role: 'assistant',
-      content: response,
+      content: '',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }
-    setMessages((prev) => [...prev, aiMsg])
-    setIsTyping(false)
+
+    setMessages((prev) => [...prev, userMsg, initialAiMsg])
+    setIsTyping(true)
+
+    try {
+      const response = await fetch('/api/v1/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          conversation_id: activeConversation,
+          agent_id: activeAgent.id,
+        })
+      })
+
+      if (!response.ok) throw new Error('API Error')
+      
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let aiContent = ''
+      let buffer = ''
+      
+      let currentConvId = activeConversation
+      let realAiMsgId = aiMsgId
+      
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || '' // keep the incomplete line in buffer
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.slice(6).trim()
+              if (!dataStr || dataStr === '{}') continue
+              try {
+                const data = JSON.parse(dataStr)
+                if (data.content) {
+                  aiContent = data.content
+                  if (data.id) realAiMsgId = data.id
+                  if (data.conversation_id && !currentConvId) {
+                    currentConvId = data.conversation_id
+                    setActiveConversation(currentConvId)
+                    fetchConversations().then(setConversations).catch(console.error)
+                  }
+                  setMessages((prev) => prev.map(m => (m.id === realAiMsgId || m.id === aiMsgId) ? { ...m, id: realAiMsgId, content: aiContent } : m))
+                }
+              } catch (e) {
+                // ignore parse error for chunks
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      setMessages((prev) => prev.map(m => m.id === aiMsgId ? { ...m, content: 'Error communicating with backend.' } : m))
+    } finally {
+      setIsTyping(false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -257,7 +265,7 @@ export default function AIChatPage() {
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {CONVERSATIONS.map((conv) => (
+          {conversations.map((conv) => (
             <button
               key={conv.id}
               onClick={() => setActiveConversation(conv.id)}
@@ -268,9 +276,11 @@ export default function AIChatPage() {
             >
               <div className="flex items-center justify-between mb-0.5">
                 <span className="text-xs font-medium text-foreground truncate max-w-[140px]">{conv.title}</span>
-                <span className="text-[10px] text-muted-foreground flex-shrink-0">{conv.date}</span>
+                <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                  {new Date(conv.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                </span>
               </div>
-              <p className="text-[10px] text-muted-foreground truncate">{conv.preview}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{conv.preview || 'New conversation...'}</p>
             </button>
           ))}
         </div>

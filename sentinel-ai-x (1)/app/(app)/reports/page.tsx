@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileText,
@@ -22,6 +22,7 @@ import {
   Shield,
 } from 'lucide-react'
 import { DEMO_REPORTS, DEMO_PROJECTS } from '@/lib/data'
+import { fetchReports, fetchProjects } from '@/lib/api'
 import { StatusBadge } from '@/components/ui/severity-badge'
 import { cn } from '@/lib/utils'
 
@@ -54,11 +55,22 @@ const FORMAT_COLORS: Record<string, string> = {
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function ReportsPage() {
+  const [reports, setReports] = useState(DEMO_REPORTS)
+  const [projects, setProjects] = useState(DEMO_PROJECTS)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      fetchReports().then(res => setReports(res.reports || res)).catch(() => {}),
+      fetchProjects().then(res => setProjects(res.projects || res)).catch(() => {})
+    ]).finally(() => setLoading(false))
+  }, [])
+
   const [wizardOpen, setWizardOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [reportType, setReportType] = useState('executive')
   const [reportFormat, setReportFormat] = useState('pdf')
-  const [selectedProject, setSelectedProject] = useState(DEMO_PROJECTS[0].id)
+  const [selectedProject, setSelectedProject] = useState(projects[0]?.id || '')
   const [generating, setGenerating] = useState(false)
   const [generatedId, setGeneratedId] = useState<string | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -80,7 +92,7 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Reports</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {DEMO_REPORTS.length} reports · {DEMO_REPORTS.filter((r) => r.status === 'ready').length} ready
+            {reports.length} reports · {reports.filter((r) => r.status === 'ready').length} ready
           </p>
         </div>
         <button
@@ -116,7 +128,7 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {REPORT_TYPES.map((type, i) => {
           const Icon = type.icon
-          const count = DEMO_REPORTS.filter((r) => r.type === type.id).length
+          const count = reports.filter((r) => r.type === type.id).length
           return (
             <motion.div
               key={type.id}
@@ -139,9 +151,9 @@ export default function ReportsPage() {
       {/* Reports list */}
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-foreground">All Reports</h2>
-        {DEMO_REPORTS.map((report, i) => {
+        {reports.map((report, i) => {
           const Icon = TYPE_ICONS[report.type] ?? FileText
-          const project = DEMO_PROJECTS.find((p) => p.id === report.project)
+          const project = projects.find((p) => p.id === report.project)
 
           return (
             <motion.div
@@ -339,7 +351,7 @@ export default function ReportsPage() {
                       onChange={(e) => setSelectedProject(e.target.value)}
                       className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary transition-colors"
                     >
-                      {DEMO_PROJECTS.map((p) => (
+                      {projects.map((p) => (
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
@@ -409,7 +421,7 @@ export default function ReportsPage() {
                   <div>
                     <p className="text-base font-semibold text-foreground">Generating Report</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      AI is analyzing {DEMO_PROJECTS.find((p) => p.id === selectedProject)?.name ?? 'project'} findings...
+                      AI is analyzing {projects.find((p) => p.id === selectedProject)?.name ?? 'project'} findings...
                     </p>
                   </div>
                   <div className="w-full space-y-2">

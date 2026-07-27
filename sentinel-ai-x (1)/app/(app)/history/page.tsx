@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Search,
@@ -20,6 +20,7 @@ import {
   Activity,
 } from 'lucide-react'
 import { DEMO_PROJECTS, HISTORY_ITEMS } from '@/lib/data'
+import { fetchProjects, fetchHistory } from '@/lib/api'
 import { StatusBadge } from '@/components/ui/severity-badge'
 import { cn } from '@/lib/utils'
 
@@ -46,8 +47,8 @@ const TYPE_CONFIG: Record<string, { icon: React.ElementType; label: string; colo
 }
 
 /* ── Group by date ────────────────────────────────────────────────────────── */
-function groupByDate(items: typeof FULL_HISTORY) {
-  const groups: Record<string, typeof FULL_HISTORY> = {}
+function groupByDate(items: any[]) {
+  const groups: Record<string, any[]> = {}
   items.forEach((item) => {
     if (!groups[item.date]) groups[item.date] = []
     groups[item.date].push(item)
@@ -67,11 +68,22 @@ function formatDate(date: string) {
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function HistoryPage() {
+  const [projects, setProjects] = useState(DEMO_PROJECTS)
+  const [historyItems, setHistoryItems] = useState(HISTORY_ITEMS)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      fetchProjects().then(res => setProjects(res.projects || res)).catch(() => {}),
+      fetchHistory().then(res => setHistoryItems(res.historyItems || res.history || res)).catch(() => {})
+    ]).finally(() => setLoading(false))
+  }, [])
+
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [projectFilter, setProjectFilter] = useState('all')
 
-  const filtered = FULL_HISTORY.filter((item) => {
+  const filtered = historyItems.filter((item) => {
     const matchSearch = !search ||
       item.name.toLowerCase().includes(search.toLowerCase()) ||
       item.meta.toLowerCase().includes(search.toLowerCase())
@@ -83,9 +95,9 @@ export default function HistoryPage() {
   const grouped = groupByDate(filtered)
 
   const stats = {
-    scans: FULL_HISTORY.filter((h) => h.type === 'scan').length,
-    chats: FULL_HISTORY.filter((h) => h.type === 'ai_chat').length,
-    reports: FULL_HISTORY.filter((h) => h.type === 'report').length,
+    scans: historyItems.filter((h) => h.type === 'scan').length,
+    chats: historyItems.filter((h) => h.type === 'ai_chat').length,
+    reports: historyItems.filter((h) => h.type === 'report').length,
   }
 
   return (
@@ -95,7 +107,7 @@ export default function HistoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">History</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {FULL_HISTORY.length} events · all platforms
+            {historyItems.length} events · all platforms
           </p>
         </div>
         <button className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-zinc-600 transition-colors self-start sm:self-auto">
@@ -221,7 +233,7 @@ export default function HistoryPage() {
           className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground outline-none focus:border-primary transition-colors"
         >
           <option value="all">All Projects</option>
-          {DEMO_PROJECTS.map((p) => (
+          {projects.map((p) => (
             <option key={p.id} value={p.id}>{p.client}</option>
           ))}
         </select>
@@ -263,7 +275,7 @@ export default function HistoryPage() {
                 {items.map((item, i) => {
                   const cfg = TYPE_CONFIG[item.type]
                   const Icon = cfg.icon
-                  const project = DEMO_PROJECTS.find((p) => p.id === item.project)
+                  const project = projects.find((p) => p.id === item.project)
 
                   return (
                     <motion.div

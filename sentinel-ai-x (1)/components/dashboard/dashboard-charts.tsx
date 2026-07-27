@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
   AreaChart,
   Area,
@@ -17,6 +18,7 @@ import {
 } from 'recharts'
 import { motion } from 'framer-motion'
 import { RISK_TREND_DATA, SEVERITY_PIE_DATA, SCAN_TIMELINE_DATA } from '@/lib/data'
+import { fetchDashboardCharts } from '@/lib/api'
 
 const TOOLTIP_STYLE = {
   backgroundColor: '#18181B',
@@ -27,6 +29,14 @@ const TOOLTIP_STYLE = {
 }
 
 export function RiskTrendChart() {
+  const [data, setData] = useState(RISK_TREND_DATA)
+
+  useEffect(() => {
+    fetchDashboardCharts().then(res => {
+      if (res.risk_trend) setData(res.risk_trend)
+    }).catch(() => {})
+  }, [])
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -39,7 +49,7 @@ export function RiskTrendChart() {
         <p className="text-xs text-muted-foreground mt-0.5">Findings severity over time</p>
       </div>
       <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={RISK_TREND_DATA} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+        <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
           <defs>
             <linearGradient id="colorCritical" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
@@ -68,6 +78,14 @@ export function RiskTrendChart() {
 }
 
 export function SeverityPieChart() {
+  const [data, setData] = useState(SEVERITY_PIE_DATA)
+
+  useEffect(() => {
+    fetchDashboardCharts().then(res => {
+      if (res.severity_pie) setData(res.severity_pie)
+    }).catch(() => {})
+  }, [])
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -83,7 +101,7 @@ export function SeverityPieChart() {
         <ResponsiveContainer width="50%" height={160}>
           <PieChart>
             <Pie
-              data={SEVERITY_PIE_DATA}
+              data={data}
               cx="50%"
               cy="50%"
               innerRadius={45}
@@ -91,7 +109,7 @@ export function SeverityPieChart() {
               paddingAngle={2}
               dataKey="value"
             >
-              {SEVERITY_PIE_DATA.map((entry, index) => (
+              {data.map((entry: any, index: number) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
             </Pie>
@@ -99,7 +117,7 @@ export function SeverityPieChart() {
           </PieChart>
         </ResponsiveContainer>
         <div className="flex flex-col gap-1.5">
-          {SEVERITY_PIE_DATA.map((entry) => (
+          {data.map((entry: any) => (
             <div key={entry.name} className="flex items-center gap-2">
               <span className="size-2 rounded-full flex-shrink-0" style={{ backgroundColor: entry.fill }} />
               <span className="text-xs text-muted-foreground">{entry.name}</span>
@@ -113,6 +131,14 @@ export function SeverityPieChart() {
 }
 
 export function ScanTimelineChart() {
+  const [data, setData] = useState(SCAN_TIMELINE_DATA)
+
+  useEffect(() => {
+    fetchDashboardCharts().then(res => {
+      if (res.scan_timeline) setData(res.scan_timeline)
+    }).catch(() => {})
+  }, [])
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -125,7 +151,7 @@ export function ScanTimelineChart() {
         <p className="text-xs text-muted-foreground mt-0.5">Scans and findings per month</p>
       </div>
       <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={SCAN_TIMELINE_DATA} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+        <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#27272A" vertical={false} />
           <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#71717A' }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fontSize: 11, fill: '#71717A' }} axisLine={false} tickLine={false} />
