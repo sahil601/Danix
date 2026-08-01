@@ -508,7 +508,7 @@ export default function ScansPage() {
                   <div className="rounded-lg border border-border bg-zinc-950 font-mono p-4 max-h-52 overflow-y-auto">
                     <div className="flex items-center gap-1.5 mb-3">
                       <Terminal className="size-3.5 text-zinc-500" />
-                      <span className="text-[10px] text-zinc-500">SentinelAI Scanner v2.4.1</span>
+                      <span className="text-[10px] text-zinc-500">Danix Scanner v1.0.0</span>
                     </div>
                     {liveLogs.map((line, i) => (
                       <motion.div

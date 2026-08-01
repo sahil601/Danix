@@ -1,4 +1,4 @@
-// Demo data for SentinelAI X
+// Data models for Danix
 
 export const DEMO_PROJECTS = [
   {

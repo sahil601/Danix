@@ -52,8 +52,8 @@ export function Sidebar({ open = true, onClose, mobile = false }: SidebarProps) 
             <Shield className="size-4 text-white" strokeWidth={2.5} />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="text-sm font-bold text-foreground tracking-tight">SentinelAI</span>
-            <span className="text-[10px] font-semibold text-primary uppercase tracking-widest">X Platform</span>
+            <span className="text-sm font-bold text-foreground tracking-tight">Danix</span>
+            <span className="text-[10px] font-semibold text-primary uppercase tracking-widest">AI Platform</span>
           </div>
         </Link>
         {mobile && (

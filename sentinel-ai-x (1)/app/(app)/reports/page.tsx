@@ -467,7 +467,7 @@ export default function ReportsPage() {
                   <Shield className="size-5 text-primary" />
                   <div>
                     <p className="text-sm font-semibold">Acme Corp Executive Summary</p>
-                    <p className="text-xs text-muted-foreground">SentinelAI X · Confidential</p>
+                    <p className="text-xs text-muted-foreground">Danix · Confidential</p>
                   </div>
                 </div>
                 <button onClick={() => setPreviewOpen(false)} className="text-muted-foreground hover:text-foreground">

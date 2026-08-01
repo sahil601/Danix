@@ -1,28 +1,38 @@
-# Agentic Penetration Testing Platform
+# Danix — AI-Powered Autonomous Vulnerability Assessment & Penetration Testing Platform
 
-SentinelAI X is an advanced, AI-powered penetration testing platform. It leverages large language models and a LangGraph-based agentic workflow to autonomously plan, scan, analyze, and report on security vulnerabilities across web and network assets.
+**Danix** is an advanced, AI-powered autonomous vulnerability assessment and penetration testing platform. It leverages large language models and an AgentOS multi-agent workflow to autonomously plan, scan, analyze, correlate risks, and report on security vulnerabilities across web and network assets.
 
 ## Architecture
 
 The project is split into two main repositories/directories:
 
-1. **Frontend (`Ai-agentic-/sentinel-ai-x (1)`)**: A modern, high-performance Next.js 15 application built with React, Tailwind CSS, Recharts, and Framer Motion. It provides a sleek, real-time dashboard for managing projects, assets, findings, and executing agentic workflows.
-2. **Backend (`pentest_backend`)**: A robust FastAPI Python server utilizing a Clean Architecture pattern (Controllers, Services, Repositories). It uses SQLAlchemy (SQLite) for data persistence and LangGraph to orchestrate autonomous AI agents.
+1. **Frontend (`sentinel-ai-x (1)`)**: A modern, high-performance Next.js application built with React, Tailwind CSS, Recharts, and Framer Motion. It provides a sleek, real-time dashboard for managing projects, assets, findings, and executing agentic workflows.
+2. **Backend (`pentest_backend`)**: A robust Python server utilizing an AgentOS architecture (AgentManager, AgentRegistry, PluginRegistry). It orchestrates 16 autonomous AI agents and 9 security plugins with a deterministic Risk Engine, Evidence Management System, Reporting Engine, and Knowledge & RAG Engine.
 
 ## Core Features
 
-- **Agentic Workflow Engine**: Uses LangGraph to coordinate a team of specialized AI agents:
-  - `Planner Agent`: Strategizes the penetration test.
-  - `Recon Agent`: Gathers initial intelligence on targets.
-  - `Network Analyst`: Scans and analyzes network infrastructure (e.g., Nmap simulation).
-  - `Web Analyst`: Investigates web applications for vulnerabilities (e.g., XSS, SQLi).
-  - `Reasoning Engine`: Correlates findings to reduce false positives.
-  - `Report Writer`: Automatically compiles evidence into a beautifully formatted HTML report.
-- **Real-Time Execution Visualization**: The frontend connects to the backend via Server-Sent Events (SSE) to visually stream the AI agents' thought processes, logs, and phase transitions in real-time.
-- **AI Assistant Chat**: Integrated streaming AI chat to converse with an assistant about your assets, vulnerabilities, and remediation strategies.
+- **AgentOS Workflow Engine**: Coordinates a team of specialized AI agents:
+  - `Supervisor`: Oversees workflow lifecycle and agent state transitions.
+  - `Planner Agent v2.0`: Returns structured assessment goals and target strategies.
+  - `Task Scheduler`: Schedules and throttles plugin execution tasks.
+  - `Recon Agent`: Gathers WHOIS, DNS, and subdomain intelligence on targets.
+  - `Network Analyst`: Scans and analyzes network infrastructure (e.g. Nmap).
+  - `Web Analyst`: Investigates web applications for security headers and SSL issues.
+  - `Content Discovery Agent`: Discovers hidden web endpoints, sensitive files, and APIs.
+  - `API Security Agent`: Analyzes REST and GraphQL endpoints for authorization flaws.
+  - `Vulnerability Agent`: Performs CVE lookups and maps software component flaws.
+  - `Correlation Agent`: Normalizes, deduplicates, and aggregates observations into Findings.
+  - `Risk Agent`: Evaluates CVSS v3.1 scores, business impact, likelihood, and priority.
+  - `Evidence Agent`: Collects and hashes tamper-proof SHA-256 evidence.
+  - `Report Agent`: Generates Executive, Technical, and Compliance reports.
+  - `AI Analyst Agent`: Consumes platform intelligence via local LLM / Ollama.
+  - `Knowledge Agent`: Provides hybrid vector/keyword RAG retrieval across OWASP, MITRE, CWE, and NIST SP 800-53.
+  - `Memory Agent`: Manages short-term and long-term state persistence.
+- **Real-Time Execution Visualization**: The frontend streams agent thought processes, logs, and phase transitions in real-time.
+- **AI Assistant Chat**: Integrated streaming AI chat to converse with Danix intelligence about assets, vulnerabilities, and remediation strategies.
 - **Dynamic Dashboards**: Interactive charts and analytics showing risk trends, severity distribution, and scan history.
-- **Asset & Project Management**: Track domains, cloud infrastructure, and IPs mapped to specific pentest engagements.
-- **Knowledge Base**: Centralized intelligence on OWASP Top 10, MITRE ATT&CK, CVEs, and best practices.
+- **Asset & Assessment Management**: Track domains, cloud infrastructure, and IPs mapped to specific pentest engagements.
+- **Knowledge Base**: Centralized RAG intelligence on OWASP Top 10 2021, MITRE ATT&CK, CWE, NIST SP 800-53, and security best practices.
 
 ## Getting Started
 
@@ -31,17 +41,16 @@ The project is split into two main repositories/directories:
 2. Create a virtual environment: `python -m venv .venv`
 3. Activate the virtual environment: `source .venv/bin/activate`
 4. Install dependencies: `pip install -r requirements.txt`
-5. Run the FastAPI server: `uvicorn app.main:app --reload --port 8000`
-*(Note: The application will automatically initialize and seed the SQLite database `pentest.db` with realistic test data on startup.)*
+5. Run verification or server: `python test_sprint10_verification.py`
 
 ### Frontend Setup
-1. Navigate to the frontend directory: `cd "Ai-agentic-/sentinel-ai-x (1)"`
-2. Install dependencies: `npm install`
+1. Navigate to the frontend directory: `cd "sentinel-ai-x (1)"`
+2. Install dependencies: `npm install` (or `pnpm install`)
 3. Start the Next.js development server: `npm run dev`
 4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Technologies Used
 
 - **Frontend**: Next.js (App Router), React, TypeScript, Tailwind CSS, Framer Motion, Recharts, Lucide Icons.
-- **Backend**: Python 3, FastAPI, SQLAlchemy (Async), LangGraph, LangChain, SQLite.
+- **Backend**: Python 3, FastAPI / AgentOS, Pydantic, ChromaDB / Hybrid RAG, Ollama / Local Embeddings.
 - **Communication**: REST API, Server-Sent Events (SSE) for streaming.

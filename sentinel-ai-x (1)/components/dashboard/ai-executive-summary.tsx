@@ -101,7 +101,7 @@ export function AIExecutiveSummary() {
 
       <div className="mt-4 flex items-center gap-2 text-[10px] text-muted-foreground border-t border-border/50 pt-3">
         <Bot className="size-3 text-primary" />
-        <span>Powered by SentinelAI Reasoning Engine · Model: GPT-4o · Context: All active projects</span>
+        <span>Powered by Danix AI Engine · Ollama / AGY Intelligence · Context: All active assessments</span>
       </div>
     </motion.div>
   )

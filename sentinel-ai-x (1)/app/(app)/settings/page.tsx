@@ -273,7 +273,7 @@ export default function SettingsPage() {
           {/* Theme */}
           {activeSection === 'theme' && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
-              <SectionHeader title="Appearance" desc="Customize the look and feel of SentinelAI X." />
+              <SectionHeader title="Appearance" desc="Customize the look and feel of Danix." />
               <div className="rounded-xl border border-border bg-card p-5 space-y-6">
                 <div>
                   <p className="text-sm font-medium text-foreground mb-3">Theme</p>
@@ -485,15 +485,15 @@ export default function SettingsPage() {
           {/* About */}
           {activeSection === 'about' && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <SectionHeader title="About SentinelAI X" desc="Platform version and legal information." />
+              <SectionHeader title="About Danix" desc="Platform version and legal information." />
               <div className="rounded-xl border border-border bg-card p-6">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="flex size-14 items-center justify-center rounded-2xl bg-primary">
                     <Shield className="size-7 text-white" strokeWidth={2.5} />
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-foreground">SentinelAI X</p>
-                    <p className="text-xs text-muted-foreground">AI-Powered Security Operations Platform</p>
+                    <p className="text-lg font-bold text-foreground">Danix</p>
+                    <p className="text-xs text-muted-foreground">AI-Powered Autonomous Vulnerability Assessment & Penetration Testing Platform</p>
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -513,7 +513,7 @@ export default function SettingsPage() {
                 <div className="mt-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-3 flex items-start gap-2">
                   <AlertTriangle className="size-4 text-yellow-400 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-yellow-400 leading-relaxed">
-                    SentinelAI X is designed exclusively for authorized security assessments on systems you own or have explicit written permission to test. Unauthorized use is prohibited.
+                    Danix is designed exclusively for authorized security assessments on systems you own or have explicit written permission to test. Unauthorized use is prohibited.
                   </p>
                 </div>
               </div>
@@ -646,7 +646,7 @@ export default function SettingsPage() {
           {/* Plugins */}
           {activeSection === 'plugins' && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-              <SectionHeader title="Plugins" desc="Extend SentinelAI X with community and enterprise plugins." />
+              <SectionHeader title="Plugins" desc="Extend Danix with community and enterprise plugins." />
               <div className="space-y-3">
                 {[
                   { name: 'Jira Integration', version: '1.3.0', status: true, desc: 'Auto-create Jira tickets from findings' },
@@ -684,13 +684,13 @@ export default function SettingsPage() {
               <SectionHeader title="Database" desc="Connection details and data management." />
               <div className="rounded-xl border border-border bg-card p-5 space-y-1">
                 <SettingsRow label="Host" description="Database server address">
-                  <code className="text-xs font-mono text-muted-foreground bg-zinc-800 px-2 py-1 rounded">db.sentinelai.internal</code>
+                  <code className="text-xs font-mono text-muted-foreground bg-zinc-800 px-2 py-1 rounded">db.danix.internal</code>
                 </SettingsRow>
                 <SettingsRow label="Port" description="Connection port">
                   <code className="text-xs font-mono text-muted-foreground bg-zinc-800 px-2 py-1 rounded">5432</code>
                 </SettingsRow>
                 <SettingsRow label="Database Name">
-                  <code className="text-xs font-mono text-muted-foreground bg-zinc-800 px-2 py-1 rounded">sentinelai_prod</code>
+                  <code className="text-xs font-mono text-muted-foreground bg-zinc-800 px-2 py-1 rounded">danix_prod</code>
                 </SettingsRow>
                 <SettingsRow label="Status" description="Current connection health">
                   <span className="flex items-center gap-1.5 text-xs font-medium text-green-400">

@@ -78,7 +78,7 @@ export function TopNav({ onMenuClick, onCommandOpen, onActivityOpen, onShortcuts
 
       {/* Breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground min-w-0 flex-1">
-        <span className="text-xs font-medium text-muted-foreground/60">SentinelAI X</span>
+        <span className="text-xs font-medium text-muted-foreground/60">Danix</span>
         {segments.map((seg, i) => (
           <span key={seg} className="flex items-center gap-1 min-w-0">
             <ChevronRight className="size-3 flex-shrink-0" />

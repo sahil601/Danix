@@ -9,10 +9,10 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'SentinelAI X — AI-Powered Security Operations Platform',
+  title: 'Danix — AI-Powered Autonomous Vulnerability Assessment & Penetration Testing Platform',
   description:
-    'Enterprise-grade AI security operations platform for authorized security assessments, vulnerability management, and threat intelligence.',
-  generator: 'SentinelAI X',
+    'Danix is an enterprise-grade AI-Powered Autonomous Vulnerability Assessment & Penetration Testing Platform for security operations, vulnerability management, and threat intelligence.',
+  generator: 'Danix',
 }
 
 export const viewport: Viewport = {

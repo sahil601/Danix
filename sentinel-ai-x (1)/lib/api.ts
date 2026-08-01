@@ -1,5 +1,5 @@
 /**
- * SentinelAI X — API Client
+ * Danix — API Client
  *
  * Replaces all DEMO_* mock data imports with real backend API calls.
  * Falls back to mock data if the backend is unreachable.

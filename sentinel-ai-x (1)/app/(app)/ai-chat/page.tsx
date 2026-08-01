@@ -39,7 +39,7 @@ interface Message {
 
 /* ── Agents ───────────────────────────────────────────────────────────────── */
 const AGENTS = [
-  { id: 'sentinel', label: 'SentinelAI', desc: 'General security assistant', icon: Shield, color: 'text-primary' },
+  { id: 'danix', label: 'Danix AI', desc: 'General security assistant', icon: Shield, color: 'text-primary' },
   { id: 'recon', label: 'Recon Agent', desc: 'Network & asset discovery', icon: Search, color: 'text-cyan-400' },
   { id: 'vuln', label: 'Vuln Analyst', desc: 'Finding triage & explanation', icon: AlertTriangle, color: 'text-red-400' },
   { id: 'report', label: 'Report Writer', desc: 'Executive & technical reports', icon: FileText, color: 'text-yellow-400' },
@@ -145,7 +145,7 @@ export default function AIChatPage() {
     const blob = new Blob([content], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = 'sentinelai-chat.txt'; a.click()
+    a.href = url; a.download = 'danix-chat.txt'; a.click()
     URL.revokeObjectURL(url)
   }
 
