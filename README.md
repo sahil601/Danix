@@ -1,4 +1,4 @@
-# SentinelAI X - Agentic Penetration Testing Platform
+# Agentic Penetration Testing Platform
 
 SentinelAI X is an advanced, AI-powered penetration testing platform. It leverages large language models and a LangGraph-based agentic workflow to autonomously plan, scan, analyze, and report on security vulnerabilities across web and network assets.
 
