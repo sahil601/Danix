@@ -48,5 +48,10 @@ dist/
 build/
 *.egg-info/
 
-# System / AI Agent artifacts
+# Generated Reports & Output
+pentest_backend/app/reports/
+pentest_backend/reports/
 report_output/
+
+# Scratch Directory
+scratch/
