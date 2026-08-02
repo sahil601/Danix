@@ -36,18 +36,38 @@ The project is split into two main repositories/directories:
 
 ## Getting Started
 
-### Backend Setup
-1. Navigate to the backend directory: `cd pentest_backend`
-2. Create a virtual environment: `python -m venv .venv`
-3. Activate the virtual environment: `source .venv/bin/activate`
-4. Install dependencies: `pip install -r requirements.txt`
-5. Run verification or server: `python test_sprint10_verification.py`
+### Unified Startup (Recommended)
 
-### Frontend Setup
-1. Navigate to the frontend directory: `cd "sentinel-ai-x (1)"`
-2. Install dependencies: `npm install` (or `pnpm install`)
-3. Start the Next.js development server: `npm run dev`
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+Start both Frontend and Backend concurrently from the repository root:
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Launch the entire platform:
+   ```bash
+   npm run dev
+   ```
+   - **Frontend Dashboard**: [http://localhost:3000](http://localhost:3000)
+   - **Backend API**: [http://localhost:8000](http://localhost:8000) (Docs: [http://localhost:8000/docs](http://localhost:8000/docs))
+
+### Individual Component Commands
+
+- **Frontend Only**: `npm run frontend` (or `cd frontend && npm run dev`)
+- **Backend Only**: `npm run backend` (or `cd pentest_backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload`)
+
+### Manual Setup & Prerequisites
+
+#### Backend Setup
+1. Navigate to backend directory: `cd pentest_backend`
+2. Create and activate a virtual environment:
+   - Linux/macOS: `python3 -m venv .venv && source .venv/bin/activate`
+   - Windows: `python -m venv .venv && .venv\Scripts\activate`
+3. Install Python dependencies: `pip install -r requirements.txt`
+
+#### Frontend Setup
+1. Navigate to frontend directory: `cd frontend`
+2. Install dependencies: `npm install`
 
 ## Technologies Used
 
