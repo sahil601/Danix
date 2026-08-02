@@ -86,7 +86,7 @@ export default function HistoryPage() {
   const filtered = historyItems.filter((item) => {
     const matchSearch = !search ||
       item.name.toLowerCase().includes(search.toLowerCase()) ||
-      item.meta.toLowerCase().includes(search.toLowerCase())
+      ((item as any).meta || (item as any).metadata_json || '').toString().toLowerCase().includes(search.toLowerCase())
     const matchType = typeFilter === 'all' || item.type === typeFilter
     const matchProject = projectFilter === 'all' || item.project === projectFilter
     return matchSearch && matchType && matchProject

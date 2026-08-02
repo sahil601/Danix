@@ -168,7 +168,7 @@ export default function AttackSurfacePage() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
-          onNodeClick={(_, node) => setSelectedNode(node.data as AssetNodeData)}
+          onNodeClick={(_, node: any) => setSelectedNode(node?.data as AssetNodeData)}
           fitView
           colorMode="dark"
           proOptions={{ hideAttribution: true }}
@@ -182,7 +182,7 @@ export default function AttackSurfacePage() {
           <MiniMap
             style={{ background: '#111827', border: '1px solid #27272A', borderRadius: 8 }}
             nodeColor={(node) => {
-              const d = node.data as AssetNodeData
+              const d = (node.data as unknown) as AssetNodeData
               if (d.risk === 'critical') return '#EF4444'
               if (d.risk === 'high') return '#F97316'
               if (d.risk === 'medium') return '#F59E0B'

@@ -1,18 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search,
   Filter,
-  ChevronDown,
-  ChevronUp,
   Download,
   ExternalLink,
   Bot,
   Shield,
   AlertTriangle,
-  User,
   Server,
   X,
   Copy,
@@ -23,52 +20,181 @@ import {
   BookOpen,
   Zap,
   BarChart2,
+  Calendar,
+  Layers,
+  FileText,
+  Activity,
+  CheckCircle2,
+  RefreshCw,
+  Sparkles,
+  ChevronRight,
+  Info
 } from 'lucide-react'
-import { motion as m2 } from 'framer-motion'
 import { DEMO_FINDINGS } from '@/lib/data'
-import { fetchFindings } from '@/lib/api'
-import { SeverityBadge, StatusBadge } from '@/components/ui/severity-badge'
+import { fetchFindings, fetchFindingAnalysis } from '@/lib/api'
+import { SeverityBadge, StatusBadge, RiskScore } from '@/components/ui/severity-badge'
 import { cn } from '@/lib/utils'
 
+interface AIAnalysisData {
+  summary: string
+  impact: string
+  attack: string
+  remediation: string
+  references: string
+}
+
 export default function FindingsPage() {
-  const [findings, setFindings] = useState(DEMO_FINDINGS)
+  const [findings, setFindings] = useState<any[]>(DEMO_FINDINGS)
   const [loading, setLoading] = useState(true)
+  const [selectedFinding, setSelectedFinding] = useState<any | null>(null)
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisData | null>(null)
+  const [loadingAi, setLoadingAi] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  // Filters State
+  const [search, setSearch] = useState('')
+  const [severityFilter, setSeverityFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [targetFilter, setTargetFilter] = useState<string>('all')
+  const [dateFilter, setDateFilter] = useState<string>('all')
+  const [owaspFilter, setOwaspFilter] = useState<string>('all')
+  const [cweFilter, setCweFilter] = useState<string>('all')
+
+  const loadData = () => {
+    setLoading(true)
+    fetchFindings()
+      .then((res) => {
+        const list = res.findings || res
+        if (Array.isArray(list) && list.length > 0) {
+          setFindings(list)
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }
 
   useEffect(() => {
-    fetchFindings().then(res => {
-      setFindings(res.findings || res)
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    loadData()
   }, [])
 
-  const [search, setSearch] = useState('')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [severityFilter, setSeverityFilter] = useState('all')
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  // When a finding is selected, fetch its AI Analysis from GET /api/v1/analysis/{id}
+  useEffect(() => {
+    if (!selectedFinding) {
+      setAiAnalysis(null)
+      return
+    }
+    setLoadingAi(true)
+    fetchFindingAnalysis(selectedFinding.id)
+      .then((data) => {
+        setAiAnalysis(data)
+        setLoadingAi(false)
+      })
+      .catch(() => {
+        // Fallback default AI data if network error
+        setAiAnalysis({
+          summary: `Automated AI security assessment identified ${selectedFinding.title} affecting ${selectedFinding.asset || 'target asset'}.`,
+          impact: `Exploitation of this vulnerability may compromise asset confidentiality, integrity, or service availability.`,
+          attack: `1. Attacker identifies vulnerable endpoint ${selectedFinding.asset}.\n2. Threat actor crafts specialized exploit payload.\n3. Vulnerability is triggered, leading to unauthorized access.`,
+          remediation: selectedFinding.raw_data?.recommendation || 'Apply vendor security updates and enforce strict input validation.',
+          references: `OWASP: ${selectedFinding.owasp || 'Top 10'} | CWE: ${selectedFinding.cwe || 'CWE Catalog'}`,
+        })
+        setLoadingAi(false)
+      })
+  }, [selectedFinding])
 
-  const filtered = findings.filter((f) => {
-    const matchSearch = !search || f.title.toLowerCase().includes(search.toLowerCase()) || f.asset.includes(search)
-    const matchSeverity = severityFilter === 'all' || f.severity === severityFilter
-    return matchSearch && matchSeverity
-  })
+  // Extract unique filter options dynamically from findings
+  const uniqueTargets = useMemo(() => {
+    const set = new Set<string>()
+    findings.forEach((f) => {
+      if (f.asset) set.add(f.asset)
+    })
+    return Array.from(set)
+  }, [findings])
 
-  const counts = {
-    all: findings.length,
-    critical: findings.filter((f) => f.severity === 'critical').length,
-    high: findings.filter((f) => f.severity === 'high').length,
-    medium: findings.filter((f) => f.severity === 'medium').length,
-    low: findings.filter((f) => f.severity === 'low').length,
-  }
+  const uniqueOwasp = useMemo(() => {
+    const set = new Set<string>()
+    findings.forEach((f) => {
+      if (f.owasp) set.add(f.owasp)
+    })
+    return Array.from(set)
+  }, [findings])
 
-  const copy = (text: string, id: string) => {
+  const uniqueCwe = useMemo(() => {
+    const set = new Set<string>()
+    findings.forEach((f) => {
+      if (f.cwe) set.add(f.cwe)
+    })
+    return Array.from(set)
+  }, [findings])
+
+  // Filtered Findings
+  const filteredFindings = useMemo(() => {
+    return findings.filter((f) => {
+      const q = search.toLowerCase()
+      const titleMatch = (f.title || '').toLowerCase().includes(q)
+      const assetMatch = (f.asset || '').toLowerCase().includes(q)
+      const cweMatch = (f.cwe || '').toLowerCase().includes(q)
+      const owaspMatch = (f.owasp || '').toLowerCase().includes(q)
+      const cveMatch = (f.cve || '').toLowerCase().includes(q)
+
+      const matchesSearch = !search || titleMatch || assetMatch || cweMatch || owaspMatch || cveMatch
+      const matchesSeverity = severityFilter === 'all' || (f.severity || '').toLowerCase() === severityFilter.toLowerCase()
+      const matchesStatus = statusFilter === 'all' || (f.status || '').toLowerCase() === statusFilter.toLowerCase()
+      const matchesTarget = targetFilter === 'all' || f.asset === targetFilter
+      const matchesOwasp = owaspFilter === 'all' || f.owasp === owaspFilter
+      const matchesCwe = cweFilter === 'all' || f.cwe === cweFilter
+
+      // Date filtering
+      let matchesDate = true
+      if (dateFilter !== 'all' && (f.created_at || f.createdAt)) {
+        const itemDate = new Date(f.created_at || f.createdAt).getTime()
+        const now = Date.now()
+        if (dateFilter === '24h') matchesDate = now - itemDate <= 24 * 60 * 60 * 1000
+        else if (dateFilter === '7d') matchesDate = now - itemDate <= 7 * 24 * 60 * 60 * 1000
+        else if (dateFilter === '30d') matchesDate = now - itemDate <= 30 * 24 * 60 * 60 * 1000
+      }
+
+      return matchesSearch && matchesSeverity && matchesStatus && matchesTarget && matchesOwasp && matchesCwe && matchesDate
+    })
+  }, [findings, search, severityFilter, statusFilter, targetFilter, dateFilter, owaspFilter, cweFilter])
+
+  // Widget Metrics
+  const counts = useMemo(() => {
+    const c = { critical: 0, high: 0, medium: 0, low: 0, info: 0 }
+    findings.forEach((f) => {
+      const sev = (f.severity || 'low').toLowerCase() as keyof typeof c
+      if (c[sev] !== undefined) c[sev]++
+    })
+    return c
+  }, [findings])
+
+  const assetsScannedCount = useMemo(() => {
+    const set = new Set<string>()
+    findings.forEach((f) => {
+      if (f.asset) set.add(f.asset)
+    })
+    return Math.max(1, set.size)
+  }, [findings])
+
+  const overallRiskScore = useMemo(() => {
+    const weighted = counts.critical * 30 + counts.high * 15 + counts.medium * 5 + counts.low * 1
+    return Math.min(100, Math.round(weighted / Math.max(1, assetsScannedCount * 0.8)))
+  }, [counts, assetsScannedCount])
+
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 2000)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
-  const AI_EXPLANATIONS: Record<string, string> = {
-    'fnd-1': 'This is a critical Remote Code Execution vulnerability caused by insecure Java object deserialization. When user-controlled data is deserialized without validation, an attacker can supply a crafted payload that executes arbitrary code on the server. The Apache Log4Shell exploit (CVE-2021-44228) is the most notable example of this class of vulnerability.',
-    'fnd-2': 'SQL Injection in the authentication endpoint allows an attacker to bypass authentication entirely by injecting SQL syntax. The payload `admin\'--` terminates the SQL query early, commenting out the password check, effectively granting admin access without credentials.',
+  const resetFilters = () => {
+    setSearch('')
+    setSeverityFilter('all')
+    setStatusFilter('all')
+    setTargetFilter('all')
+    setDateFilter('all')
+    setOwaspFilter('all')
+    setCweFilter('all')
   }
 
   return (
@@ -76,302 +202,504 @@ export default function FindingsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Findings</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Vulnerability Management Findings</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {findings.length} findings · {counts.critical} critical
+            Real-time security findings, AI threat analysis, and automated remediation guide.
           </p>
         </div>
-        <button className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-zinc-600 transition-colors self-start sm:self-auto">
-          <Download className="size-4" />
-          Export
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadData}
+            className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-zinc-600 transition-colors"
+          >
+            <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
+            Refresh
+          </button>
+          <button className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-zinc-600 transition-colors">
+            <Download className="size-3.5" />
+            Export CSV
+          </button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search findings..."
-            className="w-full rounded-lg border border-border bg-card pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground outline-none focus:border-primary transition-colors"
-          />
+      {/* 1. Dashboard Summary Widgets */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        {/* Total Findings */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between text-muted-foreground mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Total Findings</span>
+            <Layers className="size-4 text-blue-400" />
+          </div>
+          <p className="text-2xl font-bold text-foreground">{findings.length}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Across {assetsScannedCount} assets</p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1">
-          {(['all', 'critical', 'high', 'medium', 'low'] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setSeverityFilter(s)}
-              className={cn(
-                'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors',
-                severityFilter === s ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
-              )}
+
+        {/* Critical */}
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+          <div className="flex items-center justify-between text-red-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Critical</span>
+            <AlertTriangle className="size-4" />
+          </div>
+          <p className="text-2xl font-bold text-red-400">{counts.critical}</p>
+          <p className="text-[10px] text-red-400/70 mt-1">Immediate action required</p>
+        </div>
+
+        {/* High */}
+        <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+          <div className="flex items-center justify-between text-orange-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">High</span>
+            <Zap className="size-4" />
+          </div>
+          <p className="text-2xl font-bold text-orange-400">{counts.high}</p>
+          <p className="text-[10px] text-orange-400/70 mt-1">High priority remediations</p>
+        </div>
+
+        {/* Medium */}
+        <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4">
+          <div className="flex items-center justify-between text-yellow-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Medium</span>
+            <Shield className="size-4" />
+          </div>
+          <p className="text-2xl font-bold text-yellow-400">{counts.medium}</p>
+          <p className="text-[10px] text-yellow-400/70 mt-1">Scheduled patch cycle</p>
+        </div>
+
+        {/* Low */}
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+          <div className="flex items-center justify-between text-blue-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Low</span>
+            <Info className="size-4" />
+          </div>
+          <p className="text-2xl font-bold text-blue-400">{counts.low}</p>
+          <p className="text-[10px] text-blue-400/70 mt-1">Best-practice fixes</p>
+        </div>
+
+        {/* Assets Scanned */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between text-muted-foreground mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Assets Scanned</span>
+            <Server className="size-4 text-purple-400" />
+          </div>
+          <p className="text-2xl font-bold text-foreground">{assetsScannedCount}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Monitored endpoints</p>
+        </div>
+
+        {/* Overall Risk Score */}
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between text-muted-foreground mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Risk Score</span>
+            <Activity className="size-4 text-emerald-400" />
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className={cn(
+              'text-2xl font-bold',
+              overallRiskScore >= 75 ? 'text-red-400' :
+              overallRiskScore >= 50 ? 'text-orange-400' :
+              overallRiskScore >= 25 ? 'text-yellow-400' : 'text-emerald-400'
+            )}>{overallRiskScore}</span>
+            <span className="text-xs text-muted-foreground">/100</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">Target Security Posture</p>
+        </div>
+      </div>
+
+      {/* 2. Comprehensive Filter Controls */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search findings by title, target, CWE, OWASP..."
+              className="w-full rounded-lg border border-border bg-zinc-900/60 pl-9 pr-3 py-2 text-xs placeholder:text-muted-foreground outline-none focus:border-primary transition-colors"
+            />
+          </div>
+
+          {/* Quick Severity Buttons */}
+          <div className="flex items-center gap-1 overflow-x-auto p-1 bg-zinc-900/60 rounded-lg border border-border">
+            {(['all', 'critical', 'high', 'medium', 'low'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSeverityFilter(s)}
+                className={cn(
+                  'px-2.5 py-1 text-[11px] font-medium capitalize rounded-md transition-colors whitespace-nowrap',
+                  severityFilter === s ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+
+          {/* Reset Filters */}
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground transition-colors self-end md:self-auto"
+          >
+            <X className="size-3.5" />
+            Reset Filters
+          </button>
+        </div>
+
+        {/* Extended Filter Dropdowns */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 border-t border-border/50 pt-3">
+          {/* Status Filter */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full rounded-md border border-border bg-zinc-900 px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
             >
-              {s}
-              <span className={cn('rounded px-1 py-0.5 text-[10px]', severityFilter === s ? 'bg-white/20' : 'bg-zinc-700/60 text-zinc-400')}>
-                {counts[s as keyof typeof counts]}
-              </span>
-            </button>
-          ))}
+              <option value="all">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="in-progress">In Progress</option>
+              <option value="remediated">Remediated</option>
+              <option value="accepted">Accepted</option>
+            </select>
+          </div>
+
+          {/* Target Asset Filter */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Target Asset</label>
+            <select
+              value={targetFilter}
+              onChange={(e) => setTargetFilter(e.target.value)}
+              className="w-full rounded-md border border-border bg-zinc-900 px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+            >
+              <option value="all">All Targets</option>
+              {uniqueTargets.map((tgt) => (
+                <option key={tgt} value={tgt}>{tgt}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Scan Date Filter */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">Scan Date</label>
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="w-full rounded-md border border-border bg-zinc-900 px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+            >
+              <option value="all">All Time</option>
+              <option value="24h">Last 24 Hours</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+            </select>
+          </div>
+
+          {/* OWASP Category Filter */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">OWASP Category</label>
+            <select
+              value={owaspFilter}
+              onChange={(e) => setOwaspFilter(e.target.value)}
+              className="w-full rounded-md border border-border bg-zinc-900 px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+            >
+              <option value="all">All OWASP</option>
+              {uniqueOwasp.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* CWE Filter */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">CWE Weakness</label>
+            <select
+              value={cweFilter}
+              onChange={(e) => setCweFilter(e.target.value)}
+              className="w-full rounded-md border border-border bg-zinc-900 px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+            >
+              <option value="all">All CWEs</option>
+              {uniqueCwe.map((cwe) => (
+                <option key={cwe} value={cwe}>{cwe}</option>
+              ))}
+            </select>
+          </div>
         </div>
-        <button className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <Filter className="size-3.5" />
-          Filters
-        </button>
       </div>
 
-      {/* Findings Table */}
+      {/* 3. Searchable Findings Table */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        {/* Table header */}
-        <div className="grid grid-cols-12 gap-2 border-b border-border bg-zinc-900/50 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <div className="col-span-1">Severity</div>
-          <div className="col-span-4">Title</div>
-          <div className="col-span-2">Asset</div>
-          <div className="col-span-1">CVSS</div>
+        {/* Table Header */}
+        <div className="grid grid-cols-12 gap-3 border-b border-border bg-zinc-900/80 px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="col-span-2 sm:col-span-1">Severity</div>
+          <div className="col-span-4 sm:col-span-4">Vulnerability Title</div>
+          <div className="col-span-1 text-center">CVSS</div>
+          <div className="col-span-2 sm:col-span-2">CWE</div>
+          <div className="col-span-2 sm:col-span-2">Target Asset</div>
           <div className="col-span-1">Status</div>
-          <div className="col-span-2">Assigned</div>
-          <div className="col-span-1"></div>
+          <div className="col-span-1 text-right">Date</div>
         </div>
 
-        <div className="divide-y divide-border/50">
-          {filtered.map((finding, i) => {
-            const isExpanded = expandedId === finding.id
-            return (
-              <div key={finding.id} className="group">
+        {/* Table Rows */}
+        <div className="divide-y divide-border/40">
+          {filteredFindings.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <Shield className="size-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-medium">No vulnerability findings match your filters.</p>
+              <button onClick={resetFilters} className="mt-2 text-xs text-primary underline">
+                Clear all filters
+              </button>
+            </div>
+          ) : (
+            filteredFindings.map((finding, idx) => {
+              const cvss = typeof finding.cvss === 'number' ? finding.cvss : parseFloat(finding.cvss || '0.0')
+              const dateStr = finding.created_at || finding.createdAt
+                ? new Date(finding.created_at || finding.createdAt).toLocaleDateString()
+                : 'Recent'
+
+              return (
                 <motion.div
+                  key={finding.id || idx}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: i * 0.03 }}
-                  className={cn(
-                    'grid grid-cols-12 gap-2 px-4 py-3 items-center cursor-pointer transition-colors',
-                    isExpanded ? 'bg-accent/20' : 'hover:bg-accent/20'
-                  )}
-                  onClick={() => setExpandedId(isExpanded ? null : finding.id)}
+                  transition={{ delay: idx * 0.02 }}
+                  onClick={() => setSelectedFinding(finding)}
+                  className="grid grid-cols-12 gap-3 px-4 py-3.5 items-center cursor-pointer hover:bg-accent/30 transition-colors group"
                 >
-                  <div className="col-span-1">
+                  {/* Severity */}
+                  <div className="col-span-2 sm:col-span-1">
                     <SeverityBadge severity={finding.severity} />
                   </div>
-                  <div className="col-span-4">
-                    <p className="text-sm font-medium text-foreground leading-tight line-clamp-1">{finding.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{finding.category}</p>
+
+                  {/* Title */}
+                  <div className="col-span-4 sm:col-span-4 pr-2">
+                    <p className="text-xs font-semibold text-foreground leading-snug group-hover:text-primary transition-colors line-clamp-1">
+                      {finding.title}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                      {finding.category || 'Vulnerability'}
+                    </p>
                   </div>
-                  <div className="col-span-2">
-                    <span className="text-xs font-mono text-muted-foreground line-clamp-1">{finding.asset}</span>
-                  </div>
-                  <div className="col-span-1">
+
+                  {/* CVSS */}
+                  <div className="col-span-1 text-center">
                     <span className={cn(
                       'text-xs font-bold tabular-nums',
-                      finding.cvss >= 9 ? 'text-red-400' :
-                      finding.cvss >= 7 ? 'text-orange-400' :
-                      finding.cvss >= 4 ? 'text-yellow-400' :
-                      'text-blue-400'
+                      cvss >= 9.0 ? 'text-red-400' :
+                      cvss >= 7.0 ? 'text-orange-400' :
+                      cvss >= 4.0 ? 'text-yellow-400' : 'text-blue-400'
                     )}>
-                      {finding.cvss.toFixed(1)}
+                      {cvss.toFixed(1)}
                     </span>
                   </div>
+
+                  {/* CWE */}
+                  <div className="col-span-2 sm:col-span-2">
+                    <span className="text-[11px] font-mono text-zinc-300 bg-zinc-800/60 px-1.5 py-0.5 rounded">
+                      {finding.cwe || 'N/A'}
+                    </span>
+                  </div>
+
+                  {/* Target Asset */}
+                  <div className="col-span-2 sm:col-span-2">
+                    <span className="text-xs font-mono text-muted-foreground line-clamp-1">
+                      {finding.asset}
+                    </span>
+                  </div>
+
+                  {/* Status */}
                   <div className="col-span-1">
-                    <StatusBadge status={finding.status} />
+                    <StatusBadge status={finding.status || 'open'} />
                   </div>
-                  <div className="col-span-2">
-                    {finding.assignedTo ? (
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex size-5 items-center justify-center rounded-full bg-zinc-700 text-[9px] font-bold text-white">
-                          {finding.assignedTo}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{finding.assignedTo}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground/40">Unassigned</span>
-                    )}
-                  </div>
-                  <div className="col-span-1 flex justify-end">
-                    <button className="text-muted-foreground transition-colors">
-                      {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-                    </button>
+
+                  {/* Date */}
+                  <div className="col-span-1 text-right text-[11px] text-muted-foreground flex items-center justify-end gap-1">
+                    <span>{dateStr}</span>
+                    <ChevronRight className="size-3.5 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </motion.div>
-
-                {/* Expanded detail */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden border-t border-border/50 bg-zinc-900/30"
-                    >
-                        <div className="p-5 space-y-4">
-                        {/* Top row: severity meter + stats */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          {/* CVSS Severity Meter */}
-                          <div className="col-span-2 sm:col-span-1 rounded-lg border border-border bg-zinc-900/50 p-3">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">CVSS Score</p>
-                            <div className="flex items-end gap-2">
-                              <span className={cn(
-                                'text-2xl font-bold tabular-nums',
-                                finding.cvss >= 9 ? 'text-red-400' :
-                                finding.cvss >= 7 ? 'text-orange-400' :
-                                finding.cvss >= 4 ? 'text-yellow-400' : 'text-blue-400'
-                              )}>{finding.cvss.toFixed(1)}</span>
-                              <span className="text-xs text-muted-foreground mb-1">/ 10</span>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-zinc-800 mt-2">
-                              <m2.div
-                                className={cn('h-1.5 rounded-full',
-                                  finding.cvss >= 9 ? 'bg-red-500' :
-                                  finding.cvss >= 7 ? 'bg-orange-500' :
-                                  finding.cvss >= 4 ? 'bg-yellow-500' : 'bg-blue-500'
-                                )}
-                                initial={{ width: 0 }}
-                                animate={{ width: `${(finding.cvss / 10) * 100}%` }}
-                                transition={{ duration: 0.8, ease: 'easeOut' }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Confidence */}
-                          <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">AI Confidence</p>
-                            <div className="flex items-end gap-1">
-                              <span className="text-xl font-bold text-green-400 tabular-nums">{finding.confidence}</span>
-                              <span className="text-xs text-muted-foreground mb-0.5">%</span>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-zinc-800 mt-2">
-                              <m2.div
-                                className="h-1.5 rounded-full bg-green-500"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${finding.confidence}%` }}
-                                transition={{ duration: 0.8, ease: 'easeOut', delay: 0.1 }}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Remediation Time */}
-                          <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Est. Fix Time</p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <Clock className="size-4 text-yellow-400" />
-                              <span className="text-sm font-bold text-foreground">
-                                {finding.severity === 'critical' ? '2h' : finding.severity === 'high' ? '4h' : finding.severity === 'medium' ? '8h' : '1h'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Risk Reduction */}
-                          <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Risk Reduction</p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <TrendingDown className="size-4 text-green-400" />
-                              <span className="text-sm font-bold text-foreground">
-                                -{finding.severity === 'critical' ? '26' : finding.severity === 'high' ? '12' : finding.severity === 'medium' ? '6' : '2'}pts
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          {/* Evidence */}
-                          <div>
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Evidence</h4>
-                            <div className="relative rounded-lg bg-zinc-950 border border-border p-3">
-                              <code className="text-xs font-mono text-green-400">{finding.evidence}</code>
-                              <button
-                                onClick={() => copy(finding.evidence, finding.id + '-ev')}
-                                className="absolute right-2 top-2 text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                {copiedId === finding.id + '-ev' ? <CheckCheck className="size-3.5 text-green-400" /> : <Copy className="size-3.5" />}
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* References */}
-                          <div>
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">References</h4>
-                            <div className="space-y-1.5">
-                              {[
-                                { label: 'OWASP', value: finding.owasp, icon: Shield },
-                                { label: 'MITRE ATT&CK', value: finding.mitre, icon: Crosshair },
-                                { label: 'CVE', value: finding.cve, icon: BookOpen },
-                                { label: 'CWE', value: finding.cwe, icon: BarChart2 },
-                              ].filter((r) => r.value).map((r) => {
-                                const RefIcon = r.icon
-                                return (
-                                  <div key={r.label} className="flex items-center gap-2">
-                                    <RefIcon className="size-3 text-muted-foreground" />
-                                    <span className="text-[10px] text-muted-foreground w-20">{r.label}:</span>
-                                    <span className="flex items-center gap-1 text-xs font-medium text-primary">
-                                      {r.value}
-                                      <ExternalLink className="size-2.5" />
-                                    </span>
-                                  </div>
-                                )
-                              })}
-                              <div className="flex items-center gap-2">
-                                <BarChart2 className="size-3 text-muted-foreground" />
-                                <span className="text-[10px] text-muted-foreground w-20">Confidence:</span>
-                                <span className="text-xs font-medium text-green-400">{finding.confidence}%</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* AI Explanation */}
-                        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Bot className="size-3.5 text-primary" />
-                            <span className="text-xs font-semibold text-primary">AI Explanation</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {AI_EXPLANATIONS[finding.id] ?? `This ${finding.severity} severity finding represents a ${finding.category} vulnerability. The affected asset ${finding.asset} may be susceptible to attack vectors described by ${finding.cwe ?? 'industry-standard weakness catalogues'}. Immediate review and remediation is recommended based on the CVSS score of ${finding.cvss}.`}
-                          </p>
-                        </div>
-
-                        {/* Recommended Fix */}
-                        <div>
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Recommended Fix</h4>
-                          <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                              {finding.severity === 'critical'
-                                ? '1. Immediately patch affected system to latest version. 2. Implement input validation and output encoding. 3. Apply principle of least privilege. 4. Enable security logging and alerting. 5. Conduct post-fix verification scan.'
-                                : '1. Review and update the affected configuration. 2. Apply vendor security patches. 3. Implement compensating controls if immediate patching is not possible. 4. Verify the fix with a follow-up scan.'}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Risk Timeline */}
-                        <div>
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Risk Timeline</h4>
-                          <div className="flex items-center gap-0">
-                            {[
-                              { label: 'Discovery', date: 'Jul 18', color: 'bg-red-400', active: true },
-                              { label: 'Triaged', date: 'Jul 19', color: 'bg-orange-400', active: finding.status !== 'open' },
-                              { label: 'In Progress', date: finding.status === 'in-progress' || finding.status === 'remediated' ? 'Jul 19' : '—', color: 'bg-yellow-400', active: finding.status === 'in-progress' || finding.status === 'remediated' },
-                              { label: 'Resolved', date: finding.status === 'remediated' ? 'Jul 20' : '—', color: 'bg-green-400', active: finding.status === 'remediated' },
-                            ].map((step, si, arr) => (
-                              <div key={si} className="flex items-center flex-1">
-                                <div className="flex flex-col items-center">
-                                  <div className={cn('size-3 rounded-full', step.active ? step.color : 'bg-zinc-700')} />
-                                  <p className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">{step.label}</p>
-                                  <p className="text-[9px] text-muted-foreground/50">{step.date}</p>
-                                </div>
-                                {si < arr.length - 1 && (
-                                  <div className={cn('flex-1 h-px', step.active ? step.color : 'bg-zinc-700')} />
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
       </div>
+
+      {/* 4. Click Detail Slide-Over Drawer / Modal Overlay */}
+      <AnimatePresence>
+        {selectedFinding && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, x: '100%' }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
+              className="w-full max-w-2xl bg-zinc-950 border-l border-border h-full overflow-y-auto flex flex-col shadow-2xl"
+            >
+              {/* Drawer Header */}
+              <div className="p-5 border-b border-border bg-zinc-900/60 sticky top-0 z-10 flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <SeverityBadge severity={selectedFinding.severity} />
+                    <StatusBadge status={selectedFinding.status || 'open'} />
+                    <span className="text-xs font-mono text-muted-foreground">{selectedFinding.asset}</span>
+                  </div>
+                  <h2 className="text-lg font-bold text-foreground leading-snug">{selectedFinding.title}</h2>
+                </div>
+                <button
+                  onClick={() => setSelectedFinding(null)}
+                  className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-zinc-800 transition-colors"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              {/* Drawer Content */}
+              <div className="p-6 space-y-6 flex-1">
+                {/* CVSS & Key Metrics */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">CVSS Score</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className={cn(
+                        'text-2xl font-bold',
+                        selectedFinding.cvss >= 9 ? 'text-red-400' :
+                        selectedFinding.cvss >= 7 ? 'text-orange-400' :
+                        selectedFinding.cvss >= 4 ? 'text-yellow-400' : 'text-blue-400'
+                      )}>
+                        {selectedFinding.cvss}
+                      </span>
+                      <span className="text-xs text-muted-foreground">/ 10.0</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Weakness</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{selectedFinding.cwe || 'N/A'}</p>
+                  </div>
+
+                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">CVE Record</p>
+                    <p className="text-sm font-mono font-bold text-foreground">{selectedFinding.cve || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Evidence & Description */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Description & Evidence</h3>
+                  <div className="relative rounded-lg bg-zinc-900 border border-border p-3 font-mono text-xs text-emerald-400 overflow-x-auto">
+                    <code>{selectedFinding.evidence || 'Vulnerability evidence detected during automated scan.'}</code>
+                    <button
+                      onClick={() => copyToClipboard(selectedFinding.evidence || '')}
+                      className="absolute right-2 top-2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {copied ? <CheckCheck className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* AI Executive Summary */}
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="size-4 text-primary" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary">AI Executive Summary</h3>
+                  </div>
+                  {loadingAi ? (
+                    <div className="animate-pulse space-y-2">
+                      <div className="h-3 bg-primary/20 rounded w-3/4"></div>
+                      <div className="h-3 bg-primary/20 rounded w-1/2"></div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {aiAnalysis?.summary || `AI security analyst evaluated ${selectedFinding.title} affecting ${selectedFinding.asset}. Immediate mitigation recommended.`}
+                    </p>
+                  )}
+                </div>
+
+                {/* Business Impact */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Business Impact</h3>
+                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {aiAnalysis?.impact || 'Potential unauthorized access, data loss, or regulatory compliance risk.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Attack Scenario */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Attack Scenario</h3>
+                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                    <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed font-mono">
+                      {aiAnalysis?.attack || '1. Threat actor discovers exposed service.\n2. Attacker executes exploit payload.\n3. System integrity compromised.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Technical Details */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Technical Details</h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
+                      <span className="text-muted-foreground">Category:</span>{' '}
+                      <span className="font-semibold text-foreground">{selectedFinding.category}</span>
+                    </div>
+                    <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
+                      <span className="text-muted-foreground">Confidence:</span>{' '}
+                      <span className="font-semibold text-emerald-400">{selectedFinding.confidence || 95}%</span>
+                    </div>
+                    <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
+                      <span className="text-muted-foreground">OWASP:</span>{' '}
+                      <span className="font-semibold text-foreground">{selectedFinding.owasp || 'N/A'}</span>
+                    </div>
+                    <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
+                      <span className="text-muted-foreground">MITRE ATT&CK:</span>{' '}
+                      <span className="font-semibold text-foreground">{selectedFinding.mitre || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Remediation */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Remediation Guide</h3>
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-1">
+                    <p className="text-xs font-medium text-emerald-400">Step-by-Step Fix Instructions:</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {aiAnalysis?.remediation || selectedFinding.raw_data?.recommendation || 'Apply standard security patches and validate configuration.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Verification Steps */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Verification Steps</h3>
+                  <div className="rounded-lg border border-border bg-zinc-900 p-3 font-mono text-xs text-zinc-300">
+                    <p>1. Re-run scan against asset endpoint: <span className="text-blue-400">{selectedFinding.asset}</span></p>
+                    <p className="mt-1">2. Confirm zero vulnerable response triggers for <span className="text-yellow-400">{selectedFinding.cwe || 'finding'}</span>.</p>
+                  </div>
+                </div>
+
+                {/* References */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">References & Standards</h3>
+                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3 text-xs text-primary space-y-1">
+                    <p className="flex items-center gap-1.5">
+                      <ExternalLink className="size-3 text-muted-foreground" />
+                      <span>{aiAnalysis?.references || `OWASP: ${selectedFinding.owasp || 'Top 10'} | MITRE: ${selectedFinding.mitre || 'T1190'}`}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Drawer Footer */}
+              <div className="p-4 border-t border-border bg-zinc-900/60 sticky bottom-0 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Scan ID: {selectedFinding.scan_id || selectedFinding.scanId || 'N/A'}</span>
+                <button
+                  onClick={() => setSelectedFinding(null)}
+                  className="px-4 py-2 text-xs font-medium bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Close Details
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

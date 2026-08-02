@@ -133,6 +133,16 @@ export async function fetchFindingExplanation(id: string) {
   return http.get<{ explanation: string }>(`/findings/${id}/explanation`)
 }
 
+export async function fetchFindingAnalysis(id: string) {
+  return http.get<{
+    summary: string
+    impact: string
+    attack: string
+    remediation: string
+    references: string
+  }>(`/analysis/${id}`)
+}
+
 // ─── Dashboard Metrics & Feed ───────────────────────────────────
 
 export async function fetchDashboardOverview() {
