@@ -6,7 +6,7 @@
 
 The project is split into two main repositories/directories:
 
-1. **Frontend (`sentinel-ai-x (1)`)**: A modern, high-performance Next.js application built with React, Tailwind CSS, Recharts, and Framer Motion. It provides a sleek, real-time dashboard for managing projects, assets, findings, and executing agentic workflows.
+1. **Frontend (`Danix-x (1)`)**: A modern, high-performance Next.js application built with React, Tailwind CSS, Recharts, and Framer Motion. It provides a sleek, real-time dashboard for managing projects, assets, findings, and executing agentic workflows.
 2. **Backend (`pentest_backend`)**: A robust Python server utilizing an AgentOS architecture (AgentManager, AgentRegistry, PluginRegistry). It orchestrates 16 autonomous AI agents and 9 security plugins with a deterministic Risk Engine, Evidence Management System, Reporting Engine, and Knowledge & RAG Engine.
 
 ## Core Features

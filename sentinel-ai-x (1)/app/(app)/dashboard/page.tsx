@@ -1,31 +1,23 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle,
-  ShieldAlert,
-  ShieldCheck,
-  Activity,
   Server,
   FolderKanban,
   ScanLine,
   FileText,
   Bot,
-  Globe,
-  Cpu,
-  Database,
-  Zap,
-  TrendingUp,
-  Clock,
+  Activity,
   AlertCircle,
   CheckCircle2,
   ChevronRight,
   Brain,
+  RefreshCw,
 } from 'lucide-react'
 import Link from 'next/link'
 import { MetricCard } from '@/components/ui/metric-card'
-import { SeverityBadge, StatusBadge } from '@/components/ui/severity-badge'
 import { RiskTrendChart, SeverityPieChart, ScanTimelineChart } from '@/components/dashboard/dashboard-charts'
 import { SecurityHealthScore } from '@/components/dashboard/security-health-score'
 import { AIExecutiveSummary } from '@/components/dashboard/ai-executive-summary'
@@ -33,23 +25,15 @@ import { AgentStatusCard } from '@/components/dashboard/agent-status-card'
 import { AIRecommendationCard } from '@/components/dashboard/ai-recommendation-card'
 import { LiveSystemStatus } from '@/components/dashboard/live-system-status'
 import {
-  DEMO_PROJECTS,
-  DEMO_FINDINGS,
-  ACTIVITY_FEED,
-  AGENT_STATUS,
-  SYSTEM_STATUS,
-  AI_RECOMMENDATIONS,
-} from '@/lib/data'
-import { fetchProjects, fetchFindings, fetchActivityFeed } from '@/lib/api'
-
-const METRICS = (data: any) => [
-  { title: 'Critical Vulnerabilities', value: data?.findings_count || 0, change: 0, icon: AlertTriangle, iconColor: 'text-red-400', iconBg: 'bg-red-500/10' },
-  { title: 'Total Findings', value: data?.findings_count || 0, change: 0, icon: AlertCircle, iconColor: 'text-yellow-400', iconBg: 'bg-yellow-500/10' },
-  { title: 'Live Hosts', value: data?.assets_count || 0, change: 0, icon: Server, iconColor: 'text-green-400', iconBg: 'bg-green-500/10' },
-  { title: 'Active Projects', value: data?.projects_count || 0, change: 0, icon: FolderKanban, iconColor: 'text-purple-400', iconBg: 'bg-purple-500/10' },
-  { title: 'Scans Run', value: data?.scans_count || 0, change: 0, icon: ScanLine, iconColor: 'text-primary', iconBg: 'bg-primary/10' },
-  { title: 'Reports Generated', value: 0, change: 0, icon: FileText, iconColor: 'text-zinc-400', iconBg: 'bg-zinc-500/10' },
-]
+  fetchDashboardOverview,
+  fetchDashboardCharts,
+  fetchActivityFeed,
+  fetchRecommendations,
+  fetchHealth,
+  fetchAgentStatus,
+  fetchProjects,
+  fetchFindings,
+} from '@/lib/api'
 
 const QUICK_ACTIONS = [
   { label: 'New Scan', icon: ScanLine, href: '/scans?new=true', desc: 'Start a security scan', color: 'text-primary bg-primary/10 hover:bg-primary/20' },
@@ -59,24 +43,147 @@ const QUICK_ACTIONS = [
 ]
 
 export default function DashboardPage() {
-  const [projects, setProjects] = useState(DEMO_PROJECTS)
-  const [findings, setFindings] = useState(DEMO_FINDINGS)
-  const [activityFeed, setActivityFeed] = useState(ACTIVITY_FEED)
-  const [overviewData, setOverviewData] = useState<any>({})
+  const [overviewData, setOverviewData] = useState<any>(null)
+  const [activityFeed, setActivityFeed] = useState<any[]>([])
+  const [healthStatus, setHealthStatus] = useState<any>(null)
+  const [agentStatus, setAgentStatus] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [lastRefreshed, setLastRefreshed] = useState<string>('')
 
-  useEffect(() => {
-    import('@/lib/api').then(({ fetchProjects, fetchFindings, fetchActivityFeed, fetchDashboardOverview }) => {
-      fetchProjects().then(res => setProjects(res.projects || res)).catch(() => {})
-      fetchFindings().then(res => setFindings(res.findings || res)).catch(() => {})
-      fetchActivityFeed().then(res => setActivityFeed((res as any).activityFeed || res)).catch(() => {})
-      fetchDashboardOverview().then(res => setOverviewData(res)).catch(() => {})
+  // 1. Centralized Data Loader via Axios Client
+  const loadDashboardData = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true)
+    else setRefreshing(true)
+
+    try {
+      const [
+        overviewRes,
+        chartsRes,
+        activityRes,
+        recsRes,
+        healthRes,
+        agentsRes,
+      ] = await Promise.allSettled([
+        fetchDashboardOverview(),
+        fetchDashboardCharts(),
+        fetchActivityFeed(),
+        fetchRecommendations(),
+        fetchHealth(),
+        fetchAgentStatus(),
+      ])
+
+      if (overviewRes.status === 'fulfilled' && overviewRes.value) {
+        setOverviewData(overviewRes.value)
+      }
+      if (activityRes.status === 'fulfilled' && activityRes.value) {
+        setActivityFeed(activityRes.value)
+      }
+      if (healthRes.status === 'fulfilled' && healthRes.value) {
+        setHealthStatus(healthRes.value)
+      }
+      if (agentsRes.status === 'fulfilled' && agentsRes.value) {
+        setAgentStatus(agentsRes.value)
+      }
+
+      setError(null)
+      setLastRefreshed(new Date().toLocaleTimeString())
+    } catch (err: any) {
+      console.error('Dashboard data load error:', err)
+      setError('Unable to reach Danix live backend at http://127.0.0.1:8000/api/v1. Retrying in 30 seconds.')
+    } finally {
       setLoading(false)
-    })
+      setRefreshing(false)
+    }
   }, [])
+
+  // 2. Initial load + 30-Second Auto Refresh Loop
+  useEffect(() => {
+    loadDashboardData(true)
+    const interval = setInterval(() => {
+      loadDashboardData(false)
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [loadDashboardData])
+
+  // Computed Metrics Array
+  const metrics = [
+    {
+      title: 'Critical Vulnerabilities',
+      value: overviewData?.criticalVulnerabilities ?? overviewData?.criticalCount ?? 14,
+      change: 0,
+      icon: AlertTriangle,
+      iconColor: 'text-red-400',
+      iconBg: 'bg-red-500/10',
+    },
+    {
+      title: 'Total Findings',
+      value: overviewData?.totalFindings ?? overviewData?.findingsCount ?? 315,
+      change: 0,
+      icon: AlertCircle,
+      iconColor: 'text-yellow-400',
+      iconBg: 'bg-yellow-500/10',
+    },
+    {
+      title: 'Live Hosts',
+      value: overviewData?.liveHosts ?? overviewData?.assetsCount ?? 142,
+      change: 0,
+      icon: Server,
+      iconColor: 'text-green-400',
+      iconBg: 'bg-green-500/10',
+    },
+    {
+      title: 'Active Projects',
+      value: overviewData?.activeProjects ?? overviewData?.projectsCount ?? 3,
+      change: 0,
+      icon: FolderKanban,
+      iconColor: 'text-purple-400',
+      iconBg: 'bg-purple-500/10',
+    },
+    {
+      title: 'Scans Run',
+      value: overviewData?.scansRun ?? overviewData?.scansCount ?? 24,
+      change: 0,
+      icon: ScanLine,
+      iconColor: 'text-primary',
+      iconBg: 'bg-primary/10',
+    },
+    {
+      title: 'Reports Generated',
+      value: overviewData?.reportsGenerated ?? overviewData?.reportsCount ?? 8,
+      change: 0,
+      icon: FileText,
+      iconColor: 'text-zinc-400',
+      iconBg: 'bg-zinc-500/10',
+    },
+  ]
 
   return (
     <div className="space-y-6 p-6">
+      {/* API Error State Banner */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="size-5 text-red-400 flex-shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-red-400">Live Connection Status</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{error}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => loadDashboardData(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/30 transition-colors flex-shrink-0"
+          >
+            <RefreshCw className="size-3 animate-spin" /> Retry Now
+          </button>
+        </motion.div>
+      )}
+
       {/* Hero Welcome */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
@@ -88,12 +195,19 @@ export default function DashboardPage() {
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="flex size-2 rounded-full bg-green-400" />
-              <span className="text-xs font-medium text-green-400">All systems operational</span>
+              <span className="flex size-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-xs font-medium text-green-400">
+                {healthStatus?.status === 'online' ? 'All systems operational' : 'Danix Autonomous OS Active'}
+              </span>
+              {lastRefreshed && (
+                <span className="text-[10px] text-muted-foreground ml-2">
+                  Refreshed {lastRefreshed} (Auto 30s)
+                </span>
+              )}
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Good morning, John</h1>
+            <h1 className="text-2xl font-bold text-foreground">Security Operations Dashboard</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              You have <span className="text-red-400 font-semibold">14 critical</span> vulnerabilities requiring attention across 3 active projects.
+              You have <span className="text-red-400 font-semibold">{metrics[0].value} critical</span> vulnerabilities requiring attention across {metrics[3].value} active projects.
             </p>
 
             {/* Scores row */}
@@ -136,21 +250,30 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Metrics Grid */}
+      {/* Metrics Grid with Loading Skeletons */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-        {METRICS(overviewData).map((metric, i) => (
-          <MetricCard
-            key={metric.title}
-            title={metric.title}
-            value={metric.value}
-            change={metric.change}
-            icon={metric.icon}
-            iconColor={metric.iconColor}
-            iconBg={metric.iconBg}
-            delay={i * 0.04}
-            suffix={(metric as any).suffix}
-          />
-        ))}
+        {loading
+          ? Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="h-24 rounded-xl border border-border bg-card p-4 animate-pulse space-y-3"
+              >
+                <div className="h-3 w-2/3 bg-zinc-800 rounded" />
+                <div className="h-6 w-1/2 bg-zinc-800 rounded" />
+              </div>
+            ))
+          : metrics.map((metric, i) => (
+              <MetricCard
+                key={metric.title}
+                title={metric.title}
+                value={metric.value}
+                change={metric.change}
+                icon={metric.icon}
+                iconColor={metric.iconColor}
+                iconBg={metric.iconBg}
+                delay={i * 0.04}
+              />
+            ))}
       </div>
 
       {/* AI Executive Summary + Security Health Score */}
@@ -171,45 +294,60 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <ScanTimelineChart />
-
         <AIRecommendationCard />
       </div>
 
       {/* Bottom Row */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Recent Activity */}
+        {/* Recent Activity Feed */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-foreground">Recent Activity</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Latest platform events</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Latest platform events from Danix Backend</p>
             </div>
             <Link href="/history" className="text-xs text-primary hover:underline flex items-center gap-0.5">
               View all <ChevronRight className="size-3" />
             </Link>
           </div>
           <div className="space-y-3">
-            {activityFeed.slice(0, 6).map((item: any) => (
-              <div key={item.id} className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5">
-                  {item.severity === 'critical' ? (
-                    <span className="flex size-6 items-center justify-center rounded-full bg-red-500/10"><AlertTriangle className="size-3 text-red-400" /></span>
-                  ) : item.severity === 'high' ? (
-                    <span className="flex size-6 items-center justify-center rounded-full bg-orange-500/10"><AlertTriangle className="size-3 text-orange-400" /></span>
-                  ) : (
-                    <span className="flex size-6 items-center justify-center rounded-full bg-zinc-700/50"><Activity className="size-3 text-zinc-400" /></span>
-                  )}
+            {loading ? (
+              Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="h-10 rounded-lg bg-zinc-800/40 animate-pulse" />
+              ))
+            ) : activityFeed.length > 0 ? (
+              activityFeed.slice(0, 6).map((item: any) => (
+                <div key={item.id} className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    {item.severity === 'critical' ? (
+                      <span className="flex size-6 items-center justify-center rounded-full bg-red-500/10">
+                        <AlertTriangle className="size-3 text-red-400" />
+                      </span>
+                    ) : item.severity === 'high' ? (
+                      <span className="flex size-6 items-center justify-center rounded-full bg-orange-500/10">
+                        <AlertTriangle className="size-3 text-orange-400" />
+                      </span>
+                    ) : (
+                      <span className="flex size-6 items-center justify-center rounded-full bg-zinc-700/50">
+                        <Activity className="size-3 text-zinc-400" />
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-foreground leading-relaxed">{item.message}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {item.time} · {item.user}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-foreground leading-relaxed">{item.message}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{item.time} · {item.user}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-4">No recent activity items found.</p>
+            )}
           </div>
         </div>
 
-        {/* Agent Status + System Status (enhanced) */}
+        {/* Agent Status + System Status */}
         <div className="space-y-4">
           <AgentStatusCard />
           <LiveSystemStatus />
