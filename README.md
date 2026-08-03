@@ -1,76 +1,223 @@
-# Danix — AI-Powered Autonomous Vulnerability Assessment & Penetration Testing Platform
+🛡️ Danix — AI-Powered Enterprise VAPT Platform
+<p align="center"> <img src="docs/logo.png" width="180"> </p> <p align="center"> <strong>Enterprise-Grade AI-Powered Vulnerability Assessment & Penetration Testing Platform</strong> </p> <p align="center">
 
-**Danix** is an advanced, AI-powered autonomous vulnerability assessment and penetration testing platform. It leverages large language models and an AgentOS multi-agent workflow to autonomously plan, scan, analyze, correlate risks, and report on security vulnerabilities across web and network assets.
 
-## Architecture
 
-The project is split into two main repositories/directories:
+</p>
+🚀 Overview
 
-1. **Frontend (`Danix`)**: A modern, high-performance Next.js application built with React, Tailwind CSS, Recharts, and Framer Motion. It provides a sleek, real-time dashboard for managing projects, assets, findings, and executing agentic workflows.
-2. **Backend (`Danix_backend`)**: A robust Python server utilizing an AgentOS architecture (AgentManager, AgentRegistry, PluginRegistry). It orchestrates 16 autonomous AI agents and 9 security plugins with a deterministic Risk Engine, Evidence Management System, Reporting Engine, and Knowledge & RAG Engine.
+Danix is an AI-powered enterprise Vulnerability Assessment and Penetration Testing (VAPT) platform designed to automate reconnaissance, vulnerability assessment, security analysis, reporting, and AI-assisted decision making.
 
-## Core Features
+Unlike traditional security tools that operate independently, Danix orchestrates multiple industry-standard security tools into a unified multi-stage pipeline, correlates findings using AI, and generates executive and technical reports in real time.
 
-- **AgentOS Workflow Engine**: Coordinates a team of specialized AI agents:
-  - `Supervisor`: Oversees workflow lifecycle and agent state transitions.
-  - `Planner Agent v2.0`: Returns structured assessment goals and target strategies.
-  - `Task Scheduler`: Schedules and throttles plugin execution tasks.
-  - `Recon Agent`: Gathers WHOIS, DNS, and subdomain intelligence on targets.
-  - `Network Analyst`: Scans and analyzes network infrastructure (e.g. Nmap).
-  - `Web Analyst`: Investigates web applications for security headers and SSL issues.
-  - `Content Discovery Agent`: Discovers hidden web endpoints, sensitive files, and APIs.
-  - `API Security Agent`: Analyzes REST and GraphQL endpoints for authorization flaws.
-  - `Vulnerability Agent`: Performs CVE lookups and maps software component flaws.
-  - `Correlation Agent`: Normalizes, deduplicates, and aggregates observations into Findings.
-  - `Risk Agent`: Evaluates CVSS v3.1 scores, business impact, likelihood, and priority.
-  - `Evidence Agent`: Collects and hashes tamper-proof SHA-256 evidence.
-  - `Report Agent`: Generates Executive, Technical, and Compliance reports.
-  - `AI Analyst Agent`: Consumes platform intelligence via local LLM / Ollama.
-  - `Knowledge Agent`: Provides hybrid vector/keyword RAG retrieval across OWASP, MITRE, CWE, and NIST SP 800-53.
-  - `Memory Agent`: Manages short-term and long-term state persistence.
-- **Real-Time Execution Visualization**: The frontend streams agent thought processes, logs, and phase transitions in real-time.
-- **AI Assistant Chat**: Integrated streaming AI chat to converse with Danix intelligence about assets, vulnerabilities, and remediation strategies.
-- **Dynamic Dashboards**: Interactive charts and analytics showing risk trends, severity distribution, and scan history.
-- **Asset & Assessment Management**: Track domains, cloud infrastructure, and IPs mapped to specific pentest engagements.
-- **Knowledge Base**: Centralized RAG intelligence on OWASP Top 10 2021, MITRE ATT&CK, CWE, NIST SP 800-53, and security best practices.
+The platform is built for Security Analysts, Penetration Testers, Red Teams, MSSPs, SOC Teams, and Enterprise Security Operations.
 
-## Getting Started
+✨ Key Features
+🤖 AI-Powered Security Analysis
+Multi-Agent AI Architecture
+AI Scan Planning
+AI Vulnerability Correlation
+AI Risk Prioritization
+AI Executive Summaries
+AI Remediation Suggestions
+AI Attack Path Analysis
+🔍 Automated Reconnaissance
+Asset Discovery
+Subdomain Enumeration
+DNS Enumeration
+HTTP Fingerprinting
+Web Crawling
+Technology Detection
+SSL/TLS Analysis
+WHOIS Lookup
+🌐 Integrated Security Tools
+Nmap
+Naabu
+Httpx
+Katana
+WhatWeb
+FFUF
+Subfinder
+Nuclei
+DNSPython
+Python WHOIS
+📊 Enterprise Dashboard
+Live Scan Monitoring
+Scan Timeline
+Real-Time Progress Tracking
+Project Management
+Asset Inventory
+Finding Management
+Executive Dashboard
+Historical Scan Results
+🛡️ Enterprise Security
+JWT Authentication
+Refresh Tokens
+RBAC
+Multi-Tenant Organizations
+API Keys
+Audit Logging
+Security Headers
+Rate Limiting
+Input Validation
+📄 Professional Reporting
 
-### Unified Startup (Recommended)
+Generate:
 
-Start both Frontend and Backend concurrently from the repository root:
+Executive PDF Reports
+Technical PDF Reports
+HTML Reports
+JSON Reports
+CSV Reports
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Launch the entire platform:
-   ```bash
-   npm run dev
-   ```
-   - **Frontend Dashboard**: [http://localhost:3000](http://localhost:3000)
-   - **Backend API**: [http://localhost:8000](http://localhost:8000) (Docs: [http://localhost:8000/docs](http://localhost:8000/docs))
+Including:
 
-### Individual Component Commands
+CVSS Scores
+CWE Mapping
+CVE References
+MITRE ATT&CK Mapping
+Risk Ratings
+AI Recommendations
+Evidence
+Remediation Steps
+🏗️ Architecture
+                        User
+                         │
+                         ▼
+                  Next.js Dashboard
+                         │
+                         ▼
+                   FastAPI Backend
+                         │
+     ┌───────────────────┼────────────────────┐
+     │                   │                    │
+     ▼                   ▼                    ▼
+ Authentication     Scan Engine         AI Engine
+     │                   │                    │
+     ▼                   ▼                    ▼
+ PostgreSQL      Plugin Framework      LangGraph
+     │                   │                    │
+     ▼                   ▼                    ▼
+ Asset DB       Security Tools         Ollama LLM
+                         │
+      ┌──────────────────┼─────────────────────┐
+      │                  │                     │
+      ▼                  ▼                     ▼
+    Nmap              Nuclei               Httpx
+      │                  │                     │
+      ▼                  ▼                     ▼
+    Katana            FFUF               Subfinder
+⚡ Technology Stack
+Backend
+Python
+FastAPI
+SQLAlchemy 2.0
+Pydantic
+Alembic
+AsyncIO
+Frontend
+Next.js 16
+React 19
+TypeScript
+Tailwind CSS
+Recharts
+React Flow
+AI
+Ollama
+LangGraph
+Multi-Agent Architecture
+Database
+PostgreSQL
+SQLite (Development)
+Security
+JWT
+RBAC
+API Keys
+Audit Logs
+📁 Project Structure
+Danix/
 
-- **Frontend Only**: `npm run frontend` (or `cd frontend && npm run dev`)
-- **Backend Only**: `npm run backend` (or `cd pentest_backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload`)
+├── frontend/
+├── pentest_backend/
+│   ├── app/
+│   ├── agents/
+│   ├── plugins/
+│   ├── graph/
+│   ├── tools/
+│   ├── database/
+│   ├── models/
+│   ├── services/
+│   └── api/
+│
+├── docs/
+├── reports/
+└── tests/
+🔄 Scan Workflow
+Target
+   │
+   ▼
+AI Planning
+   │
+   ▼
+Reconnaissance
+   │
+   ▼
+Network Analysis
+   │
+   ▼
+Web Application Analysis
+   │
+   ▼
+AI Correlation
+   │
+   ▼
+Report Generation
+📈 Current Capabilities
+Enterprise Multi-Tenant Architecture
+AI Multi-Agent Security Workflow
+Plugin-Based Scan Engine
+Modular Tool Integration
+Background Task Processing
+Live Scan Monitoring
+Executive Report Generation
+RESTful API
+Interactive Swagger Documentation
+Role-Based Access Control
+Audit Logging
+Enterprise Security Middleware
+🎯 Target Users
+Penetration Testers
+Security Engineers
+SOC Analysts
+Red Teams
+Blue Teams
+MSSPs
+Security Consultants
+Enterprise Security Teams
+🚀 Roadmap
+Distributed Workers
+AI Attack Path Generation
+RAG-Based Security Knowledge
+Cloud Deployment
+Kubernetes Support
+SIEM Integration
+Jira Integration
+Slack Integration
+Microsoft Teams Integration
+WebSocket Live Monitoring
+📚 API Documentation
+http://localhost:8000/docs
+http://localhost:8000/redoc
+🤝 Contributing
 
-### Manual Setup & Prerequisites
+Contributions are welcome! Feel free to fork the repository, open issues, and submit pull requests to improve Danix.
 
-#### Backend Setup
-1. Navigate to backend directory: `cd pentest_backend`
-2. Create and activate a virtual environment:
-   - Linux/macOS: `python3 -m venv .venv && source .venv/bin/activate`
-   - Windows: `python -m venv .venv && .venv\Scripts\activate`
-3. Install Python dependencies: `pip install -r requirements.txt`
+📄 License
 
-#### Frontend Setup
-1. Navigate to frontend directory: `cd frontend`
-2. Install dependencies: `npm install`
+This project is licensed under the MIT License.
 
-## Technologies Used
+👨‍💻 Author
 
-- **Frontend**: Next.js (App Router), React, TypeScript, Tailwind CSS, Framer Motion, Recharts, Lucide Icons.
-- **Backend**: Python 3, FastAPI / AgentOS, Pydantic, ChromaDB / Hybrid RAG, Ollama / Local Embeddings.
-- **Communication**: REST API, Server-Sent Events (SSE) for streaming.
+Sahil Danish
+
+Cybersecurity • AI • Offensive Security • Security Engineering
