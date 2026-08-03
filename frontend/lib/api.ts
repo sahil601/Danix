@@ -149,6 +149,12 @@ export async function fetchFindingRemediation(id: string, technology?: string) {
   return http.get<any>(`/findings/${id}/remediation`, { params })
 }
 
+export async function fetchFindingThreatIntel(id: string, cve?: string) {
+  const params: Record<string, string> = {}
+  if (cve) params.cve = cve
+  return http.get<any>(`/findings/${id}/threat-intel`, { params })
+}
+
 // ─── Dashboard Metrics & Feed ───────────────────────────────────
 
 export async function fetchDashboardOverview() {

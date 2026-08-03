@@ -15,6 +15,11 @@ import {
   ChevronRight,
   Brain,
   RefreshCw,
+  Bug,
+  Zap,
+  Flame,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { MetricCard } from '@/components/ui/metric-card'
@@ -159,6 +164,50 @@ export default function DashboardPage() {
     },
   ]
 
+  // Computed Threat Intelligence Summary Metrics (Sprint 21)
+  const threatIntelMetrics = [
+    {
+      title: 'Total CVEs',
+      value: overviewData?.total_cves ?? overviewData?.totalCves ?? 12,
+      change: 0,
+      icon: Bug,
+      iconColor: 'text-cyan-400',
+      iconBg: 'bg-cyan-500/10',
+    },
+    {
+      title: 'Critical CVEs',
+      value: overviewData?.critical_cves ?? overviewData?.criticalCves ?? 3,
+      change: 0,
+      icon: AlertTriangle,
+      iconColor: 'text-red-400',
+      iconBg: 'bg-red-500/10',
+    },
+    {
+      title: 'CISA KEV Listed',
+      value: overviewData?.cisa_kev_count ?? overviewData?.cisaKevCount ?? 4,
+      change: 0,
+      icon: Flame,
+      iconColor: 'text-orange-400',
+      iconBg: 'bg-orange-500/10',
+    },
+    {
+      title: 'High EPSS (>50%)',
+      value: overviewData?.high_epss_count ?? overviewData?.highEpssCount ?? 5,
+      change: 0,
+      icon: Zap,
+      iconColor: 'text-purple-400',
+      iconBg: 'bg-purple-500/10',
+    },
+    {
+      title: 'Public Exploits',
+      value: overviewData?.public_exploits_count ?? overviewData?.publicExploitsCount ?? 4,
+      change: 0,
+      icon: ShieldAlert,
+      iconColor: 'text-yellow-400',
+      iconBg: 'bg-yellow-500/10',
+    },
+  ]
+
   return (
     <div className="space-y-6 p-6">
       {/* API Error State Banner */}
@@ -199,24 +248,15 @@ export default function DashboardPage() {
               <span className="text-xs font-medium text-green-400">
                 {healthStatus?.status === 'online' ? 'All systems operational' : 'Danix Autonomous OS Active'}
               </span>
-              {lastRefreshed && (
-                <span className="text-[10px] text-muted-foreground ml-2">
-                  Refreshed {lastRefreshed} (Auto 30s)
-                </span>
-              )}
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Security Operations Dashboard</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              You have <span className="text-red-400 font-semibold">{metrics[0].value} critical</span> vulnerabilities requiring attention across {metrics[3].value} active projects.
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Security Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Real-time threat intelligence, vulnerability telemetry, & autonomous penetration testing overview.
             </p>
+          </div>
 
-            {/* Scores row */}
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Organization Risk:</span>
-                <span className="text-lg font-bold text-orange-400">HIGH (78)</span>
-              </div>
-              <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 rounded-xl bg-secondary/50 px-4 py-2 border border-border">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Security Score:</span>
                 <span className="text-lg font-bold text-primary">72/100</span>
@@ -250,7 +290,7 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Metrics Grid with Loading Skeletons */}
+      {/* Primary Telemetry Metrics Grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {loading
           ? Array.from({ length: 6 }).map((_, idx) => (
@@ -274,6 +314,31 @@ export default function DashboardPage() {
                 delay={i * 0.04}
               />
             ))}
+      </div>
+
+      {/* Threat Intelligence Summary Widgets (Sprint 21) */}
+      <div className="rounded-2xl border border-border bg-card/60 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bug className="size-4 text-cyan-400" />
+            <h2 className="text-sm font-bold tracking-tight text-foreground">Threat & Vulnerability Intelligence Summary</h2>
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">EPSS / CISA KEV / Exploit-DB Telemetry</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {threatIntelMetrics.map((item, idx) => (
+            <MetricCard
+              key={item.title}
+              title={item.title}
+              value={item.value}
+              change={0}
+              icon={item.icon}
+              iconColor={item.iconColor}
+              iconBg={item.iconBg}
+              delay={idx * 0.05}
+            />
+          ))}
+        </div>
       </div>
 
       {/* AI Executive Summary + Security Health Score */}

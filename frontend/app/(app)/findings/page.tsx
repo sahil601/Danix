@@ -28,10 +28,13 @@ import {
   RefreshCw,
   Sparkles,
   ChevronRight,
-  Info
+  Info,
+  ShieldAlert,
+  Bug,
+  Flame
 } from 'lucide-react'
 import { DEMO_FINDINGS } from '@/lib/data'
-import { fetchFindings, fetchFindingAnalysis, fetchFindingRemediation } from '@/lib/api'
+import { fetchFindings, fetchFindingAnalysis, fetchFindingRemediation, fetchFindingThreatIntel } from '@/lib/api'
 import { SeverityBadge, StatusBadge, RiskScore } from '@/components/ui/severity-badge'
 import { cn } from '@/lib/utils'
 
@@ -49,9 +52,11 @@ export default function FindingsPage() {
   const [selectedFinding, setSelectedFinding] = useState<any | null>(null)
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisData | null>(null)
   const [remediationData, setRemediationData] = useState<any | null>(null)
+  const [threatIntelData, setThreatIntelData] = useState<any | null>(null)
   const [loadingAi, setLoadingAi] = useState(false)
   const [loadingRemediation, setLoadingRemediation] = useState(false)
-  const [drawerTab, setDrawerTab] = useState<'overview' | 'remediation'>('overview')
+  const [loadingThreatIntel, setLoadingThreatIntel] = useState(false)
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'remediation' | 'threat-intel'>('overview')
   const [commandTab, setCommandTab] = useState<'linux' | 'powershell' | 'firewall'>('linux')
   const [copied, setCopied] = useState(false)
 
@@ -90,6 +95,7 @@ export default function FindingsPage() {
     }
     setLoadingAi(true)
     setLoadingRemediation(true)
+    setLoadingThreatIntel(true)
 
     fetchFindingAnalysis(selectedFinding.id)
       .then((data) => {
@@ -115,6 +121,16 @@ export default function FindingsPage() {
       .catch(() => {
         setRemediationData(selectedFinding.remediation_data || null)
         setLoadingRemediation(false)
+      })
+
+    fetchFindingThreatIntel(selectedFinding.id)
+      .then((ti) => {
+        setThreatIntelData(ti)
+        setLoadingThreatIntel(false)
+      })
+      .catch(() => {
+        setThreatIntelData(selectedFinding.threat_intel_data || null)
+        setLoadingThreatIntel(false)
       })
   }, [selectedFinding])
 
@@ -592,6 +608,18 @@ export default function FindingsPage() {
                     <Sparkles className="size-3.5 text-emerald-400 animate-pulse" />
                     <span>AI Remediation</span>
                   </button>
+                  <button
+                    onClick={() => setDrawerTab('threat-intel')}
+                    className={cn(
+                      'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5',
+                      drawerTab === 'threat-intel'
+                        ? 'bg-cyan-600 text-white font-semibold shadow-sm'
+                        : 'text-muted-foreground hover:text-cyan-400 hover:bg-cyan-950/40'
+                    )}
+                  >
+                    <ShieldAlert className="size-3.5 text-cyan-400" />
+                    <span>Threat Intelligence</span>
+                  </button>
                 </div>
               </div>
 
@@ -703,7 +731,7 @@ export default function FindingsPage() {
                       </div>
                     </div>
                   </div>
-                ) : (
+                ) : drawerTab === 'remediation' ? (
                   /* TAB 2: AI REMEDIATION ASSISTANT */
                   <div className="space-y-6">
                     {/* Executive Remediation Summary & Effort / Risk Badges */}
@@ -891,6 +919,126 @@ export default function FindingsPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                ) : (
+                  /* --- Threat Intelligence Tab View --- */
+                  <div className="space-y-6">
+                    {/* Header Badges */}
+                    <div className="flex items-center justify-between rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-4">
+                      <div className="flex items-center gap-3">
+                        <Bug className="size-6 text-cyan-400" />
+                        <div>
+                          <p className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Vulnerability Intelligence</p>
+                          <h4 className="text-base font-bold font-mono text-cyan-200 mt-0.5">
+                            {threatIntelData?.cve_id || selectedFinding.cve || 'CVE-2024-1234'}
+                          </h4>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="inline-block rounded-full bg-cyan-500/20 px-3 py-1 text-xs font-bold text-cyan-300">
+                          {threatIntelData?.risk_priority || 'P1 - Critical'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* AI Threat Correlation Summary */}
+                    <div className="rounded-xl border border-border bg-zinc-900/60 p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-cyan-400">
+                        <Bot className="size-4" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider">AI Threat Summary</h3>
+                      </div>
+                      <p className="text-sm text-zinc-300 leading-relaxed">
+                        {threatIntelData?.threat_summary || `Vulnerability ${selectedFinding.cve || 'CVE-2024-1234'} carries a high exploitation probability. It is actively monitored in threat intelligence catalogs and public exploit code exists.`}
+                      </p>
+                    </div>
+
+                    {/* CVSS & EPSS Telemetry Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-border bg-zinc-900/40 p-4 space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">CVSS Score & Vector</p>
+                        <p className="text-lg font-bold text-red-400">
+                          {threatIntelData?.cvss_score ?? selectedFinding.cvss ?? 9.8} / 10.0
+                        </p>
+                        <p className="text-[11px] font-mono text-zinc-400 break-all">
+                          {threatIntelData?.cvss_vector || 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H'}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-border bg-zinc-900/40 p-4 space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">EPSS Score & Percentile</p>
+                        <p className="text-lg font-bold text-purple-400">
+                          {((threatIntelData?.epss_score ?? 0.965) * 100).toFixed(1)}% Probability
+                        </p>
+                        <p className="text-xs text-zinc-400">
+                          Percentile: <span className="font-semibold text-zinc-200">{threatIntelData?.epss_percentile || '98.2%'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* CISA KEV & Exploit Availability */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-border bg-zinc-900/40 p-4 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Flame className="size-4 text-orange-400" />
+                          <p className="text-xs font-medium text-muted-foreground">CISA KEV Catalog</p>
+                        </div>
+                        <p className="text-sm font-bold text-orange-300">
+                          {threatIntelData?.cisa_kev_status || 'Listed in CISA KEV Catalog'}
+                        </p>
+                        {threatIntelData?.cisa_kev_date && (
+                          <p className="text-[11px] text-zinc-400">Added: {threatIntelData.cisa_kev_date}</p>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl border border-border bg-zinc-900/40 p-4 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Zap className="size-4 text-yellow-400" />
+                          <p className="text-xs font-medium text-muted-foreground">Exploit Availability</p>
+                        </div>
+                        <p className="text-sm font-bold text-yellow-300">
+                          {threatIntelData?.exploit_status || 'Public Exploit Code Disclosed'}
+                        </p>
+                        <p className="text-[11px] text-zinc-400 truncate">
+                          Source: {threatIntelData?.exploit_source || 'Exploit-DB / Metasploit'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Vendor, Product & Version Intelligence */}
+                    <div className="rounded-xl border border-border bg-zinc-900/40 p-4 space-y-3">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Vendor & Version Intelligence</h3>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Vendor / Product:</p>
+                          <p className="font-semibold text-zinc-200 mt-0.5">{threatIntelData?.vendor || 'Apache Software Foundation'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Patch Status:</p>
+                          <p className="font-semibold text-emerald-400 mt-0.5">{threatIntelData?.patch_status || 'Official Security Patch Available'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Affected Versions:</p>
+                          <p className="font-mono text-red-300 mt-0.5">{threatIntelData?.affected_versions || '< 2.4.58'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Fixed Version:</p>
+                          <p className="font-mono text-emerald-300 mt-0.5">{threatIntelData?.fixed_version || '2.4.59'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vendor Advisory Button */}
+                    {threatIntelData?.vendor_advisory_url && (
+                      <a
+                        href={threatIntelData.vendor_advisory_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 rounded-xl bg-cyan-600/20 border border-cyan-500/30 p-3 text-xs font-semibold text-cyan-300 hover:bg-cyan-600/30 transition-colors"
+                      >
+                        <span>Open Vendor Security Advisory</span>
+                        <ExternalLink className="size-3.5" />
+                      </a>
+                    )}
                   </div>
                 )}
               </div>
