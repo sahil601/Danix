@@ -143,6 +143,12 @@ export async function fetchFindingAnalysis(id: string) {
   }>(`/analysis/${id}`)
 }
 
+export async function fetchFindingRemediation(id: string, technology?: string) {
+  const params: Record<string, string> = {}
+  if (technology) params.technology = technology
+  return http.get<any>(`/findings/${id}/remediation`, { params })
+}
+
 // ─── Dashboard Metrics & Feed ───────────────────────────────────
 
 export async function fetchDashboardOverview() {

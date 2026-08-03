@@ -31,7 +31,7 @@ import {
   Info
 } from 'lucide-react'
 import { DEMO_FINDINGS } from '@/lib/data'
-import { fetchFindings, fetchFindingAnalysis } from '@/lib/api'
+import { fetchFindings, fetchFindingAnalysis, fetchFindingRemediation } from '@/lib/api'
 import { SeverityBadge, StatusBadge, RiskScore } from '@/components/ui/severity-badge'
 import { cn } from '@/lib/utils'
 
@@ -48,7 +48,11 @@ export default function FindingsPage() {
   const [loading, setLoading] = useState(true)
   const [selectedFinding, setSelectedFinding] = useState<any | null>(null)
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisData | null>(null)
+  const [remediationData, setRemediationData] = useState<any | null>(null)
   const [loadingAi, setLoadingAi] = useState(false)
+  const [loadingRemediation, setLoadingRemediation] = useState(false)
+  const [drawerTab, setDrawerTab] = useState<'overview' | 'remediation'>('overview')
+  const [commandTab, setCommandTab] = useState<'linux' | 'powershell' | 'firewall'>('linux')
   const [copied, setCopied] = useState(false)
 
   // Filters State
@@ -77,20 +81,22 @@ export default function FindingsPage() {
     loadData()
   }, [])
 
-  // When a finding is selected, fetch its AI Analysis from GET /api/v1/analysis/{id}
+  // When a finding is selected, fetch its AI Analysis and AI Remediation
   useEffect(() => {
     if (!selectedFinding) {
       setAiAnalysis(null)
+      setRemediationData(null)
       return
     }
     setLoadingAi(true)
+    setLoadingRemediation(true)
+
     fetchFindingAnalysis(selectedFinding.id)
       .then((data) => {
         setAiAnalysis(data)
         setLoadingAi(false)
       })
       .catch(() => {
-        // Fallback default AI data if network error
         setAiAnalysis({
           summary: `Automated AI security assessment identified ${selectedFinding.title} affecting ${selectedFinding.asset || 'target asset'}.`,
           impact: `Exploitation of this vulnerability may compromise asset confidentiality, integrity, or service availability.`,
@@ -99,6 +105,16 @@ export default function FindingsPage() {
           references: `OWASP: ${selectedFinding.owasp || 'Top 10'} | CWE: ${selectedFinding.cwe || 'CWE Catalog'}`,
         })
         setLoadingAi(false)
+      })
+
+    fetchFindingRemediation(selectedFinding.id)
+      .then((rem) => {
+        setRemediationData(rem)
+        setLoadingRemediation(false)
+      })
+      .catch(() => {
+        setRemediationData(selectedFinding.remediation_data || null)
+        setLoadingRemediation(false)
       })
   }, [selectedFinding])
 
@@ -532,158 +548,351 @@ export default function FindingsPage() {
               className="w-full max-w-2xl bg-zinc-950 border-l border-border h-full overflow-y-auto flex flex-col shadow-2xl"
             >
               {/* Drawer Header */}
-              <div className="p-5 border-b border-border bg-zinc-900/60 sticky top-0 z-10 flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <SeverityBadge severity={selectedFinding.severity} />
-                    <StatusBadge status={selectedFinding.status || 'open'} />
-                    <span className="text-xs font-mono text-muted-foreground">{selectedFinding.asset}</span>
+              <div className="p-5 border-b border-border bg-zinc-900/60 sticky top-0 z-10 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <SeverityBadge severity={selectedFinding.severity} />
+                      <StatusBadge status={selectedFinding.status || 'open'} />
+                      <span className="text-xs font-mono text-muted-foreground">{selectedFinding.asset}</span>
+                    </div>
+                    <h2 className="text-lg font-bold text-foreground leading-snug">{selectedFinding.title}</h2>
                   </div>
-                  <h2 className="text-lg font-bold text-foreground leading-snug">{selectedFinding.title}</h2>
+                  <button
+                    onClick={() => setSelectedFinding(null)}
+                    className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-zinc-800 transition-colors"
+                  >
+                    <X className="size-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setSelectedFinding(null)}
-                  className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-zinc-800 transition-colors"
-                >
-                  <X className="size-5" />
-                </button>
+
+                {/* Drawer Tab Buttons */}
+                <div className="flex items-center gap-2 border-b border-border/50 pb-1">
+                  <button
+                    onClick={() => setDrawerTab('overview')}
+                    className={cn(
+                      'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5',
+                      drawerTab === 'overview'
+                        ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-zinc-800'
+                    )}
+                  >
+                    <FileText className="size-3.5" />
+                    <span>Overview</span>
+                  </button>
+                  <button
+                    onClick={() => setDrawerTab('remediation')}
+                    className={cn(
+                      'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5',
+                      drawerTab === 'remediation'
+                        ? 'bg-emerald-600 text-white font-semibold shadow-sm'
+                        : 'text-muted-foreground hover:text-emerald-400 hover:bg-emerald-950/40'
+                    )}
+                  >
+                    <Sparkles className="size-3.5 text-emerald-400 animate-pulse" />
+                    <span>AI Remediation</span>
+                  </button>
+                </div>
               </div>
 
               {/* Drawer Content */}
               <div className="p-6 space-y-6 flex-1">
-                {/* CVSS & Key Metrics */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">CVSS Score</p>
-                    <div className="flex items-baseline gap-1">
-                      <span className={cn(
-                        'text-2xl font-bold',
-                        selectedFinding.cvss >= 9 ? 'text-red-400' :
-                        selectedFinding.cvss >= 7 ? 'text-orange-400' :
-                        selectedFinding.cvss >= 4 ? 'text-yellow-400' : 'text-blue-400'
-                      )}>
-                        {selectedFinding.cvss}
-                      </span>
-                      <span className="text-xs text-muted-foreground">/ 10.0</span>
+                {drawerTab === 'overview' ? (
+                  /* TAB 1: OVERVIEW & ANALYSIS */
+                  <div className="space-y-6">
+                    {/* CVSS & Key Metrics */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">CVSS Score</p>
+                        <div className="flex items-baseline gap-1">
+                          <span className={cn(
+                            'text-2xl font-bold',
+                            selectedFinding.cvss >= 9 ? 'text-red-400' :
+                            selectedFinding.cvss >= 7 ? 'text-orange-400' :
+                            selectedFinding.cvss >= 4 ? 'text-yellow-400' : 'text-blue-400'
+                          )}>
+                            {selectedFinding.cvss}
+                          </span>
+                          <span className="text-xs text-muted-foreground">/ 10.0</span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Weakness</p>
+                        <p className="text-sm font-mono font-bold text-foreground">{selectedFinding.cwe || 'N/A'}</p>
+                      </div>
+
+                      <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">CVE Record</p>
+                        <p className="text-sm font-mono font-bold text-foreground">{selectedFinding.cve || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    {/* Evidence & Description */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Description & Evidence</h3>
+                      <div className="relative rounded-lg bg-zinc-900 border border-border p-3 font-mono text-xs text-emerald-400 overflow-x-auto">
+                        <code>{selectedFinding.evidence || 'Vulnerability evidence detected during automated scan.'}</code>
+                        <button
+                          onClick={() => copyToClipboard(selectedFinding.evidence || '')}
+                          className="absolute right-2 top-2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {copied ? <CheckCheck className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* AI Executive Summary */}
+                    <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="size-4 text-primary" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-primary">AI Executive Summary</h3>
+                      </div>
+                      {loadingAi ? (
+                        <div className="animate-pulse space-y-2">
+                          <div className="h-3 bg-primary/20 rounded w-3/4"></div>
+                          <div className="h-3 bg-primary/20 rounded w-1/2"></div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {aiAnalysis?.summary || `AI security analyst evaluated ${selectedFinding.title} affecting ${selectedFinding.asset}. Immediate mitigation recommended.`}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Business Impact */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Business Impact</h3>
+                      <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {aiAnalysis?.impact || 'Potential unauthorized access, data loss, or regulatory compliance risk.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Attack Scenario */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Attack Scenario</h3>
+                      <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
+                        <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed font-mono">
+                          {aiAnalysis?.attack || '1. Threat actor discovers exposed service.\n2. Attacker executes exploit payload.\n3. System integrity compromised.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Technical Details */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Technical Details</h3>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
+                          <span className="text-muted-foreground">Category:</span>{' '}
+                          <span className="font-semibold text-foreground">{selectedFinding.category}</span>
+                        </div>
+                        <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
+                          <span className="text-muted-foreground">Confidence:</span>{' '}
+                          <span className="font-semibold text-emerald-400">{selectedFinding.confidence || 95}%</span>
+                        </div>
+                        <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
+                          <span className="text-muted-foreground">OWASP:</span>{' '}
+                          <span className="font-semibold text-foreground">{selectedFinding.owasp || 'N/A'}</span>
+                        </div>
+                        <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
+                          <span className="text-muted-foreground">MITRE ATT&CK:</span>{' '}
+                          <span className="font-semibold text-foreground">{selectedFinding.mitre || 'N/A'}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  /* TAB 2: AI REMEDIATION ASSISTANT */
+                  <div className="space-y-6">
+                    {/* Executive Remediation Summary & Effort / Risk Badges */}
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="size-4 text-emerald-400" />
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400">Executive Remediation Summary</h3>
+                        </div>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          AI Confidence: {Math.round((remediationData?.confidence_score || 0.95) * 100)}%
+                        </span>
+                      </div>
 
-                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Weakness</p>
-                    <p className="text-sm font-mono font-bold text-foreground">{selectedFinding.cwe || 'N/A'}</p>
-                  </div>
+                      <p className="text-xs text-zinc-300 leading-relaxed">
+                        {remediationData?.executive_summary || `Immediate mitigation required for ${selectedFinding.title}. Applying recommended hardening eliminates security exposure.`}
+                      </p>
 
-                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">CVE Record</p>
-                    <p className="text-sm font-mono font-bold text-foreground">{selectedFinding.cve || 'N/A'}</p>
-                  </div>
-                </div>
-
-                {/* Evidence & Description */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Description & Evidence</h3>
-                  <div className="relative rounded-lg bg-zinc-900 border border-border p-3 font-mono text-xs text-emerald-400 overflow-x-auto">
-                    <code>{selectedFinding.evidence || 'Vulnerability evidence detected during automated scan.'}</code>
-                    <button
-                      onClick={() => copyToClipboard(selectedFinding.evidence || '')}
-                      className="absolute right-2 top-2 p-1 text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {copied ? <CheckCheck className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* AI Executive Summary */}
-                <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="size-4 text-primary" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-primary">AI Executive Summary</h3>
-                  </div>
-                  {loadingAi ? (
-                    <div className="animate-pulse space-y-2">
-                      <div className="h-3 bg-primary/20 rounded w-3/4"></div>
-                      <div className="h-3 bg-primary/20 rounded w-1/2"></div>
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div className="rounded-lg border border-border bg-zinc-900/80 p-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Estimated Effort</p>
+                          <p className="text-xs font-semibold text-amber-400">{remediationData?.estimated_effort || 'Low (1 - 2 hours)'}</p>
+                        </div>
+                        <div className="rounded-lg border border-border bg-zinc-900/80 p-2.5">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Risk Reduction Impact</p>
+                          <p className="text-xs font-semibold text-emerald-400">{remediationData?.risk_reduction || 'High - 90% Risk Reduction'}</p>
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {aiAnalysis?.summary || `AI security analyst evaluated ${selectedFinding.title} affecting ${selectedFinding.asset}. Immediate mitigation recommended.`}
-                    </p>
-                  )}
-                </div>
 
-                {/* Business Impact */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Business Impact</h3>
-                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {aiAnalysis?.impact || 'Potential unauthorized access, data loss, or regulatory compliance risk.'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Attack Scenario */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Attack Scenario</h3>
-                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3">
-                    <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed font-mono">
-                      {aiAnalysis?.attack || '1. Threat actor discovers exposed service.\n2. Attacker executes exploit payload.\n3. System integrity compromised.'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Technical Details */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Technical Details</h3>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
-                      <span className="text-muted-foreground">Category:</span>{' '}
-                      <span className="font-semibold text-foreground">{selectedFinding.category}</span>
+                    {/* Technical Root Cause & Step-by-Step Remediation */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Technical Root Cause & Fix Instructions</h3>
+                      <div className="rounded-lg border border-border bg-zinc-900/50 p-3.5 space-y-3 text-xs">
+                        <p className="text-zinc-300 leading-relaxed">
+                          <span className="font-semibold text-foreground">Root Cause: </span>
+                          {remediationData?.technical_root_cause || `Component ${selectedFinding.asset} fails to enforce strict security controls for ${selectedFinding.category}.`}
+                        </p>
+                        <div className="space-y-1.5 border-t border-border/50 pt-2.5">
+                          <p className="font-semibold text-emerald-400">Step-by-Step Action Items:</p>
+                          <ul className="space-y-1 text-muted-foreground pl-1">
+                            {(remediationData?.step_by_step_remediation || [
+                              `1. Isolate asset ${selectedFinding.asset} and backup active configuration.`,
+                              `2. Apply the technology-specific commands and snippets provided below.`,
+                              `3. Restart application service and run verification steps.`
+                            ]).map((step: string, idx: number) => (
+                              <li key={idx} className="flex items-start gap-1.5">
+                                <span className="text-emerald-400 font-bold">•</span>
+                                <span>{step}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
                     </div>
-                    <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
-                      <span className="text-muted-foreground">Confidence:</span>{' '}
-                      <span className="font-semibold text-emerald-400">{selectedFinding.confidence || 95}%</span>
-                    </div>
-                    <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
-                      <span className="text-muted-foreground">OWASP:</span>{' '}
-                      <span className="font-semibold text-foreground">{selectedFinding.owasp || 'N/A'}</span>
-                    </div>
-                    <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5">
-                      <span className="text-muted-foreground">MITRE ATT&CK:</span>{' '}
-                      <span className="font-semibold text-foreground">{selectedFinding.mitre || 'N/A'}</span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Remediation */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Remediation Guide</h3>
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3.5 space-y-1">
-                    <p className="text-xs font-medium text-emerald-400">Step-by-Step Fix Instructions:</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {aiAnalysis?.remediation || selectedFinding.raw_data?.recommendation || 'Apply standard security patches and validate configuration.'}
-                    </p>
-                  </div>
-                </div>
+                    {/* Ready-to-Copy Commands (Linux / PowerShell / Firewall CLI) */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Ready-to-Copy Commands</h3>
+                        <div className="flex items-center gap-1 bg-zinc-900 border border-border rounded-lg p-0.5">
+                          <button
+                            onClick={() => setCommandTab('linux')}
+                            className={cn(
+                              'px-2 py-0.5 text-[10px] font-mono rounded transition-colors',
+                              commandTab === 'linux' ? 'bg-primary text-white font-bold' : 'text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            Linux Bash
+                          </button>
+                          <button
+                            onClick={() => setCommandTab('powershell')}
+                            className={cn(
+                              'px-2 py-0.5 text-[10px] font-mono rounded transition-colors',
+                              commandTab === 'powershell' ? 'bg-primary text-white font-bold' : 'text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            PowerShell
+                          </button>
+                          <button
+                            onClick={() => setCommandTab('firewall')}
+                            className={cn(
+                              'px-2 py-0.5 text-[10px] font-mono rounded transition-colors',
+                              commandTab === 'firewall' ? 'bg-primary text-white font-bold' : 'text-muted-foreground hover:text-foreground'
+                            )}
+                          >
+                            Firewall CLI
+                          </button>
+                        </div>
+                      </div>
 
-                {/* Verification Steps */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Verification Steps</h3>
-                  <div className="rounded-lg border border-border bg-zinc-900 p-3 font-mono text-xs text-zinc-300">
-                    <p>1. Re-run scan against asset endpoint: <span className="text-blue-400">{selectedFinding.asset}</span></p>
-                    <p className="mt-1">2. Confirm zero vulnerable response triggers for <span className="text-yellow-400">{selectedFinding.cwe || 'finding'}</span>.</p>
-                  </div>
-                </div>
+                      <div className="relative rounded-lg bg-zinc-950 border border-border p-3 font-mono text-xs text-emerald-400 overflow-x-auto">
+                        <pre className="whitespace-pre-wrap leading-relaxed">
+                          {(commandTab === 'linux'
+                            ? (remediationData?.linux_commands || ["# Linux Bash commands", "sudo systemctl restart service"]).join('\n')
+                            : commandTab === 'powershell'
+                            ? (remediationData?.powershell_commands || ["# PowerShell commands", "Restart-Service -Name 'Service'"]).join('\n')
+                            : (remediationData?.firewall_commands || ["# Firewall CLI rules", "sudo ufw status"]).join('\n')
+                          )}
+                        </pre>
+                        <button
+                          onClick={() => {
+                            const text = (commandTab === 'linux'
+                              ? (remediationData?.linux_commands || []).join('\n')
+                              : commandTab === 'powershell'
+                              ? (remediationData?.powershell_commands || []).join('\n')
+                              : (remediationData?.firewall_commands || []).join('\n')
+                            )
+                            copyToClipboard(text)
+                          }}
+                          className="absolute right-2 top-2 p-1.5 bg-zinc-900/80 rounded border border-border text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {copied ? <CheckCheck className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                        </button>
+                      </div>
+                    </div>
 
-                {/* References */}
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">References & Standards</h3>
-                  <div className="rounded-lg border border-border bg-zinc-900/50 p-3 text-xs text-primary space-y-1">
-                    <p className="flex items-center gap-1.5">
-                      <ExternalLink className="size-3 text-muted-foreground" />
-                      <span>{aiAnalysis?.references || `OWASP: ${selectedFinding.owasp || 'Top 10'} | MITRE: ${selectedFinding.mitre || 'T1190'}`}</span>
-                    </p>
+                    {/* Configuration Snippets & Code Examples */}
+                    {(remediationData?.config_snippets || remediationData?.code_examples) && (
+                      <div className="space-y-4">
+                        {remediationData?.config_snippets && (
+                          <div>
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Configuration Snippet</h3>
+                            <div className="relative rounded-lg bg-zinc-950 border border-border p-3 font-mono text-xs text-cyan-300 overflow-x-auto">
+                              <pre className="whitespace-pre-wrap leading-relaxed">{remediationData.config_snippets}</pre>
+                              <button
+                                onClick={() => copyToClipboard(remediationData.config_snippets)}
+                                className="absolute right-2 top-2 p-1.5 bg-zinc-900/80 rounded border border-border text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {copied ? <CheckCheck className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {remediationData?.code_examples && (
+                          <div>
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Secure Code Example</h3>
+                            <div className="relative rounded-lg bg-zinc-950 border border-border p-3 font-mono text-xs text-amber-300 overflow-x-auto">
+                              <pre className="whitespace-pre-wrap leading-relaxed">{remediationData.code_examples}</pre>
+                              <button
+                                onClick={() => copyToClipboard(remediationData.code_examples)}
+                                className="absolute right-2 top-2 p-1.5 bg-zinc-900/80 rounded border border-border text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                {copied ? <CheckCheck className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Step-by-Step Verification Procedure */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Verification Procedure</h3>
+                      <div className="rounded-lg border border-border bg-zinc-900/50 p-3 font-mono text-xs text-zinc-300 space-y-1.5">
+                        {(remediationData?.verification_procedure || [
+                          `1. Re-run scan against asset endpoint: ${selectedFinding.asset}`,
+                          `2. Confirm zero vulnerable response triggers for ${selectedFinding.cwe || 'finding'}.`
+                        ]).map((vStep: string, idx: number) => (
+                          <p key={idx}>{vStep}</p>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Compliance Mappings */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Compliance Mappings</h3>
+                      <div className="grid grid-cols-1 gap-2 text-xs font-mono">
+                        <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5 flex items-center justify-between">
+                          <span className="text-muted-foreground">OWASP Top 10:</span>
+                          <span className="font-semibold text-emerald-400">{remediationData?.compliance_mappings?.owasp_top_10 || selectedFinding.owasp || 'A05:2021'}</span>
+                        </div>
+                        <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5 flex items-center justify-between">
+                          <span className="text-muted-foreground">PCI-DSS:</span>
+                          <span className="font-semibold text-zinc-300">{remediationData?.compliance_mappings?.pci_dss || 'Requirement 6.4.1'}</span>
+                        </div>
+                        <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5 flex items-center justify-between">
+                          <span className="text-muted-foreground">NIST SP 800-53:</span>
+                          <span className="font-semibold text-zinc-300">{remediationData?.compliance_mappings?.nist_sp_800_53 || 'SI-2 / CM-6'}</span>
+                        </div>
+                        <div className="rounded-lg border border-border bg-zinc-900/50 p-2.5 flex items-center justify-between">
+                          <span className="text-muted-foreground">ISO 27001:</span>
+                          <span className="font-semibold text-zinc-300">{remediationData?.compliance_mappings?.iso_27001 || 'Control A.8.28'}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Drawer Footer */}
